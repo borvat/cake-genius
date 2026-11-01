@@ -97,8 +97,15 @@ async function main() {
   check('assistant handles English + EN constraint extraction', a2.data.understood.budget === 900 && a2.data.understood.occasion === 'wedding', JSON.stringify(a2.data.understood));
   check('assistant answers in English when lang=en', /budget|Here is|With a/.test(a2.data.reply.en));
 
-  const a3 = await req('/api/assistant', { method: 'POST', expect: 200, body: { message: 'كيكة أطفال لـ 20 شخص', lang: 'ar' } });
+  const a3 = await req('/api/assistant', { method: 'POST', expect: 200, body: { message: 'كيك أطفال لـ 20 شخص', lang: 'ar' } });
   check('assistant serves >= 20 people for a 20-guest request', a3.data.suggestions.every((s) => s.serves >= 20), JSON.stringify(a3.data.suggestions.map((s) => s.serves)));
+
+  const a4 = await req('/api/assistant', { method: 'POST', expect: 200, body: { message: 'كيك أطفال لـ 20 شخص بميزانية 350 ريال', lang: 'ar' } });
+  check('guest count is not mistaken for the budget (350, not 20)', a4.data.understood.budget === 350, JSON.stringify(a4.data.understood));
+  check('20-guest request with 350 budget stays within budget', a4.data.suggestions.some((s) => s.withinBudget !== false), JSON.stringify(a4.data.suggestions.map((s) => s.price)));
+
+  const a5 = await req('/api/assistant', { method: 'POST', expect: 200, body: { message: 'chocolate cake for 15 people, under 300 SAR', lang: 'en' } });
+  check('English "under 300 SAR" budget with 15 guests parses to 300', a5.data.understood.budget === 300, JSON.stringify(a5.data.understood));
 
   /* 4. order creation */
   const phone = '05' + String(Date.now()).slice(-8);
