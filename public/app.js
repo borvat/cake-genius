@@ -593,7 +593,7 @@ async function boot() {
     renderCart();
     $('#engineNote').textContent = t('adminNote');
     const health = await api('/api/health');
-    $('#buildInfo').textContent = `v${health.version} · ${health.commit}`;
+    $('#buildInfo').textContent = `v${health.version} · ${String(health.commit).slice(0, 7)}`;
   } catch (err) {
     grid.innerHTML = `<div class="alert alert-error is-visible">${escapeHtml(t('errGeneric'))} — ${escapeHtml(err.message)}</div>`;
   }

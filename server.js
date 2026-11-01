@@ -27,6 +27,10 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.RENDER;
+// Render injects the deployed commit; prefer it over a manually pinned value so
+// /api/health always reports the code that is actually running.
+const COMMIT = process.env.RENDER_GIT_COMMIT || process.env.APP_COMMIT || 'dev';
+const VERSION = process.env.APP_VERSION || '1.0.0';
 
 openDb();
 const adminInfo = ensureAdmin();
@@ -259,8 +263,8 @@ async function handleApi(req, res, url) {
     return send(res, 200, {
       ok: true,
       service: 'cake-genius',
-      version: process.env.APP_VERSION || '1.0.0',
-      commit: process.env.APP_COMMIT || 'dev',
+      version: VERSION,
+      commit: COMMIT.slice(0, 40),
       uptimeSeconds: Math.round(process.uptime()),
       ordersStored: listOrders({ limit: 1000 }).length,
       db: path.basename(dbPath()),
@@ -516,6 +520,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Cake Genius listening on http://${HOST}:${PORT}`);
+  console.log(`build: v${VERSION} @ ${COMMIT}`);
   console.log(`DB: ${dbPath()}  admin user: ${adminInfo.username} (${adminInfo.created ? 'created' : 'synced'})`);
   console.log(`orders on disk at startup: ${listOrders({ limit: 1000 }).length}`);
 });
