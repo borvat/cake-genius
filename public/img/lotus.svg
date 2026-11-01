@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" role="img">
+  <defs>
+    <linearGradient id="bg-lotus" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#fcf1e1"/><stop offset="1" stop-color="#eccb9f"/>
+    </linearGradient>
+    <linearGradient id="body-lotus" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c07f3d"/><stop offset="1" stop-color="#94561f"/>
+    </linearGradient>
+    <linearGradient id="side-lotus" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.16"/>
+      <stop offset="0.4" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.12"/>
+    </linearGradient>
+    <radialGradient id="top-lotus" cx="42%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fdf1de" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="vignette-lotus" cx="50%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg-lotus)"/>
+  <rect width="800" height="600" fill="url(#vignette-lotus)"/>
+  <ellipse cx="400" cy="446" rx="186" ry="26" fill="#4a3126" opacity="0.13"/>
+  <ellipse cx="400" cy="442" rx="140" ry="16" fill="#4a3126" opacity="0.1"/>
+  <ellipse cx="400" cy="424" rx="176" ry="26" fill="#f3e6d7"/>
+       <ellipse cx="400" cy="420" rx="176" ry="24" fill="#fdf7ef"/>
+       <g transform="translate(400 330) scale(1.44) translate(-400 -330)">
+         
+    <path d="M258 232 L542 232 L542 412 Q400 448 258 412 Z" fill="url(#body-lotus)"/>
+    <path d="M258 232 L542 232 L542 412 Q400 448 258 412 Z" fill="url(#side-lotus)"/>
+    <ellipse cx="400" cy="232" rx="142" ry="30" fill="#fdf1de"/>
+    <ellipse cx="400" cy="231" rx="142" ry="28" fill="url(#top-lotus)"/>
+    <path d="M258 232
+             c0 18 26 30 46 26 c16 -3 22 12 40 12 c20 0 24 -14 44 -14 c20 0 26 16 46 16 c18 0 24 -16 42 -16 c20 0 24 14 46 14 c18 0 24 -16 20 -38 Z"
+          fill="#ffefd6" opacity="0.96"/>
+    <path d="M258 232 q142 -34 284 0" fill="none" stroke="#00000014" stroke-width="2"/>
+         <path d="M262 300 q138 26 276 0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.22"/>
+          <path d="M262 356 q138 24 276 0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.16"/>
+       </g>
+       <g transform="rotate(11 320 190)">
+      <rect x="305" y="152" width="30" height="48" rx="5" fill="#8a4b1f"/>
+      <rect x="310" y="159" width="20" height="34" rx="3" fill="#f6e5cf" opacity="0.55"/>
+    </g><g transform="rotate(-16 360 190)">
+      <rect x="345" y="152" width="30" height="48" rx="5" fill="#8a4b1f"/>
+      <rect x="350" y="159" width="20" height="34" rx="3" fill="#f6e5cf" opacity="0.55"/>
+    </g><g transform="rotate(11 400 190)">
+      <rect x="385" y="152" width="30" height="48" rx="5" fill="#8a4b1f"/>
+      <rect x="390" y="159" width="20" height="34" rx="3" fill="#f6e5cf" opacity="0.55"/>
+    </g><g transform="rotate(-16 440 190)">
+      <rect x="425" y="152" width="30" height="48" rx="5" fill="#8a4b1f"/>
+      <rect x="430" y="159" width="20" height="34" rx="3" fill="#f6e5cf" opacity="0.55"/>
+    </g><g transform="rotate(11 480 190)">
+      <rect x="465" y="152" width="30" height="48" rx="5" fill="#8a4b1f"/>
+      <rect x="470" y="159" width="20" height="34" rx="3" fill="#f6e5cf" opacity="0.55"/>
+    </g>
+</svg>

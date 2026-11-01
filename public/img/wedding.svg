@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" role="img">
+  <defs>
+    <linearGradient id="bg-wedding" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#fbf6f3"/><stop offset="1" stop-color="#e9d9ce"/>
+    </linearGradient>
+    <linearGradient id="body-wedding" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffdfb"/><stop offset="1" stop-color="#eedfd2"/>
+    </linearGradient>
+    <linearGradient id="side-wedding" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.16"/>
+      <stop offset="0.4" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.12"/>
+    </linearGradient>
+    <radialGradient id="top-wedding" cx="42%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="vignette-wedding" cx="50%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg-wedding)"/>
+  <rect width="800" height="600" fill="url(#vignette-wedding)"/>
+  <ellipse cx="400" cy="446" rx="186" ry="26" fill="#4a3126" opacity="0.13"/>
+  <ellipse cx="400" cy="442" rx="140" ry="16" fill="#4a3126" opacity="0.1"/>
+  <ellipse cx="400" cy="424" rx="176" ry="26" fill="#f3e6d7"/>
+       <ellipse cx="400" cy="420" rx="176" ry="24" fill="#fdf7ef"/>
+       <g transform="translate(400 330) scale(1.44) translate(-400 -330)">
+         
+    <path d="M258 232 L542 232 L542 412 Q400 448 258 412 Z" fill="url(#body-wedding)"/>
+    <path d="M258 232 L542 232 L542 412 Q400 448 258 412 Z" fill="url(#side-wedding)"/>
+    <ellipse cx="400" cy="232" rx="142" ry="30" fill="#ffffff"/>
+    <ellipse cx="400" cy="231" rx="142" ry="28" fill="url(#top-wedding)"/>
+    <path d="M258 232
+             c0 18 26 30 46 26 c16 -3 22 12 40 12 c20 0 24 -14 44 -14 c20 0 26 16 46 16 c18 0 24 -16 42 -16 c20 0 24 14 46 14 c18 0 24 -16 20 -38 Z"
+          fill="#fffaf6" opacity="0.96"/>
+    <path d="M258 232 q142 -34 284 0" fill="none" stroke="#00000014" stroke-width="2"/>
+         <path d="M262 300 q138 26 276 0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.22"/>
+          <path d="M262 356 q138 24 276 0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.16"/>
+       </g>
+       <g transform="translate(300 214)">
+      <circle r="17" fill="#c48b9f"/>
+      <circle r="11" fill="#fff7f8" opacity="0.92"/>
+      <circle r="5" fill="#e6c4ca"/>
+    </g><g transform="translate(352 202)">
+      <circle r="17" fill="#f8ebec"/>
+      <circle r="11" fill="#c48b9f" opacity="0.92"/>
+      <circle r="5" fill="#e6c4ca"/>
+    </g><g transform="translate(406 208)">
+      <circle r="17" fill="#c48b9f"/>
+      <circle r="11" fill="#fff7f8" opacity="0.92"/>
+      <circle r="5" fill="#e6c4ca"/>
+    </g><g transform="translate(460 200)">
+      <circle r="17" fill="#f8ebec"/>
+      <circle r="11" fill="#c48b9f" opacity="0.92"/>
+      <circle r="5" fill="#e6c4ca"/>
+    </g><g transform="translate(508 216)">
+      <circle r="17" fill="#c48b9f"/>
+      <circle r="11" fill="#fff7f8" opacity="0.92"/>
+      <circle r="5" fill="#e6c4ca"/>
+    </g><g transform="translate(378 186)">
+      <circle r="17" fill="#f8ebec"/>
+      <circle r="11" fill="#c48b9f" opacity="0.92"/>
+      <circle r="5" fill="#e6c4ca"/>
+    </g><g transform="translate(434 190)">
+      <circle r="17" fill="#c48b9f"/>
+      <circle r="11" fill="#fff7f8" opacity="0.92"/>
+      <circle r="5" fill="#e6c4ca"/>
+    </g><path d="M300 224 q-22 20 -14 40" stroke="#84a05a" stroke-width="3.5" fill="none" opacity="0.7"/>
+     <path d="M460 226 q24 16 18 38" stroke="#84a05a" stroke-width="3.5" fill="none" opacity="0.7"/>
+</svg>

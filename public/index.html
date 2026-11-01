@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cake Genius — كيك جينيوس</title>
+  <meta name="description" content="Cake Genius: custom cakes, live pricing, smart suggestions and demo checkout." />
+  <link rel="icon" href="/img/celebrate.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <a class="sr-only" href="#catalog" data-i18n="skip">تجاوز إلى القائمة</a>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">🎂</span>
+        <span>Cake Genius<small data-i18n="brandTag">حلويات مصممة بالطلب</small></span>
+      </a>
+      <nav class="site-nav" aria-label="main">
+        <a href="#catalog" data-i18n="navMenu">القائمة</a>
+        <a href="#assistant" data-i18n="navAssistant">المساعد الذكي</a>
+        <a href="#pricing" data-i18n="navPricing">كيف يُحسب السعر</a>
+        <a href="/admin" data-i18n="navAdmin">لوحة الإدارة</a>
+      </nav>
+      <div class="header-actions">
+        <button class="lang-toggle" id="langToggle" type="button" aria-label="Switch language">EN</button>
+        <button class="btn btn-accent cart-btn" id="cartBtn" type="button">
+          <span data-i18n="cart">السلة</span>
+          <span class="cart-count" id="cartCount">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow" data-i18n="eyebrow">مخبوز طازج في الرياض</span>
+          <h1 data-i18n-html="heroTitle">كيكة تُصنع على <em>مقاس مناسبتك</em>، بسعر تعرفه قبل الطلب.</h1>
+          <p class="lead" data-i18n="heroLead">اختر الحجم والنكهة والحشوة والتصميم، وشاهد السعر يتغير لحظياً بقواعد واضحة. أو قل لنا ميزانيتك ومناسبتك ويقترح المساعد الخيار المناسب.</p>
+          <div class="hero-cta">
+            <a class="btn btn-accent" href="#catalog" data-i18n="ctaBrowse">تصفح الكيك</a>
+            <a class="btn btn-ghost" href="#assistant" data-i18n="ctaAssistant">اسأل المساعد</a>
+          </div>
+          <div class="hero-stats">
+            <div><strong id="statProducts">—</strong><span data-i18n="statProducts">منتج في القائمة</span></div>
+            <div><strong>4</strong><span data-i18n="statSizes">أحجام قابلة للتخصيص</span></div>
+            <div><strong>24h</strong><span data-i18n="statMin">أقل مدة تحضير</span></div>
+          </div>
+        </div>
+        <div class="hero-art">
+          <img src="/img/pistachio.svg" alt="Cake Genius signature pistachio cake" width="800" height="600" />
+          <div class="hero-badge"><span class="k">★</span><span data-i18n="heroBadge">فستق وورد — الأكثر طلباً</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap" id="assistant">
+      <div class="assistant-band">
+        <h2 data-i18n="assistantTitle">المساعد الذكي</h2>
+        <p class="sub" data-i18n="assistantSub">اكتب طلبك بلغتك: المناسبة، عدد الأشخاص، النكهة، وميزانيتك. الأسعار تأتي من محرك التسعير نفسه، لا تقديرات.</p>
+        <form class="assistant-input-row" id="assistantForm" autocomplete="off">
+          <label class="sr-only" for="assistantInput">message</label>
+          <input id="assistantInput" type="text" maxlength="300" data-i18n-ph="assistantPlaceholder" placeholder="مثال: عيد ميلاد لـ 12 شخص، شوكولاتة، ميزانية 400 ريال" />
+          <button class="btn btn-accent" id="assistantSubmit" type="submit" data-i18n="assistantSend">اقترح لي</button>
+        </form>
+        <div class="chips" id="assistantChips"></div>
+        <div class="assistant-reply" id="assistantReply" role="status" aria-live="polite"></div>
+        <div class="assistant-results" id="assistantResults"></div>
+        <p class="engine-note" id="engineNote"></p>
+      </div>
+    </section>
+
+    <section class="section wrap" id="catalog">
+      <div class="section-head">
+        <div>
+          <h2 data-i18n="catalogTitle">قائمة الكيك</h2>
+          <p data-i18n="catalogSub">كل سعر يبدأ من نسخة 6 إنش بالخيارات الافتراضية، ويُعاد حسابه عند التخصيص.</p>
+        </div>
+      </div>
+      <div class="filters" id="filters"></div>
+      <div class="grid" id="productGrid" aria-live="polite"></div>
+    </section>
+
+    <section class="section wrap" id="pricing">
+      <div class="section-head">
+        <div>
+          <h2 data-i18n="pricingTitle">كيف يُحسب السعر</h2>
+          <p data-i18n="pricingSub">لا اجتهاد ولا أسعار مخفية: القواعد التالية مطبّقة على الخادم وتظهر لك في كل فاتورة.</p>
+        </div>
+      </div>
+      <div class="rules" id="rulesGrid"></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-inner">
+      <span data-i18n="footerNote">Cake Genius — نسخة تجريبية. لا تُحصّل أي مبالغ ولا تُرسل رسائل للعملاء.</span>
+      <span id="buildInfo" class="mono"></span>
+    </div>
+  </footer>
+
+  <!-- cart drawer -->
+  <div class="overlay" id="overlay"></div>
+  <aside class="drawer" id="cartDrawer" aria-hidden="true">
+    <div class="drawer-head">
+      <h3 data-i18n="cart">السلة</h3>
+      <button class="icon-btn" id="cartClose" type="button" aria-label="close">✕</button>
+    </div>
+    <div class="drawer-body" id="cartBody"></div>
+    <div class="drawer-foot">
+      <div class="cart-summary" id="cartSummary"></div>
+      <button class="btn btn-accent btn-block" id="checkoutBtn" type="button" data-i18n="checkout">إتمام الطلب</button>
+    </div>
+  </aside>
+
+  <!-- customizer -->
+  <div class="modal" id="customModal" role="dialog" aria-modal="true" aria-labelledby="customTitle">
+    <div class="modal-card">
+      <button class="icon-btn modal-close" id="customClose" type="button" aria-label="close">✕</button>
+      <div class="custom-grid">
+        <div class="custom-media"><img id="customImage" src="/img/celebrate.svg" alt="" /></div>
+        <div class="custom-form">
+          <h2 id="customTitle">—</h2>
+          <p class="muted" id="customDesc"></p>
+          <div id="customFields"></div>
+          <div class="quote-box" id="quoteBox">
+            <div class="quote-lines" id="quoteLines"></div>
+            <div class="quote-total"><span data-i18n="total">الإجمالي</span><span id="quoteTotal">—</span></div>
+            <p class="quote-note" data-i18n="quoteNote">السعر محسوب على الخادم ويُعاد التحقق منه عند إتمام الطلب.</p>
+          </div>
+          <div class="alert alert-error" id="customError"></div>
+          <button class="btn btn-accent btn-block" id="addToCartBtn" type="button" data-i18n="addToCart">أضف إلى السلة</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- checkout / confirmation -->
+  <div class="modal" id="checkoutModal" role="dialog" aria-modal="true">
+    <div class="modal-card" style="width:min(560px,100%)">
+      <button class="icon-btn modal-close" id="checkoutClose" type="button" aria-label="close">✕</button>
+      <div class="custom-form" id="checkoutPane"></div>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

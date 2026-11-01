@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cake Genius — Admin</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="/img/celebrate.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="admin-shell">
+  <div id="loginView" class="admin-login">
+    <form class="login-card" id="loginForm" autocomplete="on">
+      <h1>لوحة Cake Genius</h1>
+      <p data-i18n="loginSub">دخول الإدارة — الوصول مقصور على الحساب المصرّح له.</p>
+      <div class="field">
+        <label for="username">اسم المستخدم</label>
+        <input id="username" name="username" type="text" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="password">كلمة المرور</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required minlength="6" />
+      </div>
+      <div class="alert alert-error" id="loginError" role="alert"></div>
+      <button class="btn btn-accent btn-block" id="loginBtn" type="submit">تسجيل الدخول</button>
+      <p style="font-size:11.5px;color:var(--ink-soft);margin:14px 0 0">جلسة آمنة (HttpOnly cookie) · حد 6 محاولات لكل 10 دقائق.</p>
+    </form>
+  </div>
+
+  <div id="dashView" style="display:none">
+    <header class="admin-top">
+      <div class="wrap">
+        <h1>🎂 Cake Genius — Admin</h1>
+        <div class="who">
+          <span id="whoami"></span>
+          <span id="lastSync" class="mono" style="opacity:.6"></span>
+          <button class="btn btn-sm btn-ghost" id="refreshBtn" type="button" style="color:#fdf6ee;border-color:rgba(255,255,255,.3)">تحديث</button>
+          <button class="btn btn-sm btn-ghost" id="logoutBtn" type="button" style="color:#fdf6ee;border-color:rgba(255,255,255,.3)">خروج</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <div class="alert alert-error" id="dashError" role="alert"></div>
+      <div class="kpis" id="kpis"></div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>الطلبات</h2>
+          <span class="mono" id="orderCount" style="color:var(--ink-soft)"></span>
+          <div class="spacer"></div>
+          <label class="mono" for="statusFilter" style="color:var(--ink-soft)">تصفية:</label>
+          <select id="statusFilter" style="max-width:170px">
+            <option value="all">الكل</option>
+            <option value="pending">pending</option>
+            <option value="confirmed">confirmed</option>
+            <option value="baking">baking</option>
+            <option value="ready">ready</option>
+            <option value="delivered">delivered</option>
+            <option value="cancelled">cancelled</option>
+          </select>
+        </div>
+        <div class="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>رقم الطلب</th><th>العميل</th><th>العناصر</th><th>التسليم</th><th>الإجمالي</th><th>الحالة</th><th>أُنشئ</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>العملاء</h2></div>
+        <div class="admin-table-wrap">
+          <table>
+            <thead><tr><th>الاسم</th><th>الجوال</th><th>البريد</th><th>الطلبات</th><th>إجمالي الشراء</th></tr></thead>
+            <tbody id="customersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>المنتجات والأسعار</h2><span class="mono" style="color:var(--ink-soft)">تعديل سعر القاعدة يغيّر كل الخيارات المشتقة فوراً</span></div>
+        <div class="admin-table-wrap">
+          <table>
+            <thead><tr><th>المنتج</th><th>الفئة</th><th>سعر القاعدة</th><th>حفظ</th></tr></thead>
+            <tbody id="productsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>الإيرادات التجريبية (14 يوماً)</h2></div>
+        <div class="admin-table-wrap">
+          <table>
+            <thead><tr><th>اليوم</th><th>عدد الطلبات</th><th>الإيراد</th></tr></thead>
+            <tbody id="revenueBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/admin.js" type="module"></script>
+</body>
+</html>

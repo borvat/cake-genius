@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" role="img">
+  <defs>
+    <linearGradient id="bg-choco" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#f6ece4"/><stop offset="1" stop-color="#dcc3b0"/>
+    </linearGradient>
+    <linearGradient id="body-choco" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6e4029"/><stop offset="1" stop-color="#3d2116"/>
+    </linearGradient>
+    <linearGradient id="side-choco" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.16"/>
+      <stop offset="0.4" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.12"/>
+    </linearGradient>
+    <radialGradient id="top-choco" cx="42%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#3f2418" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="vignette-choco" cx="50%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg-choco)"/>
+  <rect width="800" height="600" fill="url(#vignette-choco)"/>
+  <ellipse cx="400" cy="446" rx="186" ry="26" fill="#4a3126" opacity="0.13"/>
+  <ellipse cx="400" cy="442" rx="140" ry="16" fill="#4a3126" opacity="0.1"/>
+  <ellipse cx="400" cy="424" rx="176" ry="26" fill="#f3e6d7"/>
+       <ellipse cx="400" cy="420" rx="176" ry="24" fill="#fdf7ef"/>
+       <g transform="translate(400 330) scale(1.44) translate(-400 -330)">
+         
+    <path d="M258 232 L542 232 L542 412 Q400 448 258 412 Z" fill="url(#body-choco)"/>
+    <path d="M258 232 L542 232 L542 412 Q400 448 258 412 Z" fill="url(#side-choco)"/>
+    <ellipse cx="400" cy="232" rx="142" ry="30" fill="#3f2418"/>
+    <ellipse cx="400" cy="231" rx="142" ry="28" fill="url(#top-choco)"/>
+    <path d="M258 232
+             c0 18 26 30 46 26 c16 -3 22 12 40 12 c20 0 24 -14 44 -14 c20 0 26 16 46 16 c18 0 24 -16 42 -16 c20 0 24 14 46 14 c18 0 24 -16 20 -38 Z"
+          fill="#5c3625" opacity="0.96"/>
+    <path d="M258 232 q142 -34 284 0" fill="none" stroke="#00000014" stroke-width="2"/>
+         <path d="M262 300 q138 26 276 0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.22"/>
+          <path d="M262 356 q138 24 276 0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.16"/>
+       </g>
+       <path d="M292 206 l14 -34 l13 34 z" fill="#d8a276" opacity="0.9" transform="rotate(8 305 189)"/><path d="M323 206 l14 -50 l13 50 z" fill="#d8a276" opacity="0.9" transform="rotate(-10 336 181)"/><path d="M354 206 l14 -66 l13 66 z" fill="#d8a276" opacity="0.9" transform="rotate(8 367 173)"/><path d="M385 206 l14 -34 l13 34 z" fill="#d8a276" opacity="0.9" transform="rotate(-10 398 189)"/><path d="M416 206 l14 -50 l13 50 z" fill="#d8a276" opacity="0.9" transform="rotate(8 429 181)"/><path d="M447 206 l14 -66 l13 66 z" fill="#d8a276" opacity="0.9" transform="rotate(-10 460 173)"/><path d="M478 206 l14 -34 l13 34 z" fill="#d8a276" opacity="0.9" transform="rotate(8 491 189)"/><path d="M509 206 l14 -50 l13 50 z" fill="#d8a276" opacity="0.9" transform="rotate(-10 522 181)"/>
+</svg>

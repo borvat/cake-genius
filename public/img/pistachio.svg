@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" role="img">
+  <defs>
+    <linearGradient id="bg-pistachio" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#f2f7ea"/><stop offset="1" stop-color="#cfe3bd"/>
+    </linearGradient>
+    <linearGradient id="body-pistachio" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eaf0d3"/><stop offset="1" stop-color="#a8c184"/>
+    </linearGradient>
+    <linearGradient id="side-pistachio" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.16"/>
+      <stop offset="0.4" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.12"/>
+    </linearGradient>
+    <radialGradient id="top-pistachio" cx="42%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fbfcee" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="vignette-pistachio" cx="50%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg-pistachio)"/>
+  <rect width="800" height="600" fill="url(#vignette-pistachio)"/>
+  <ellipse cx="400" cy="446" rx="186" ry="26" fill="#4a3126" opacity="0.13"/>
+  <ellipse cx="400" cy="442" rx="140" ry="16" fill="#4a3126" opacity="0.1"/>
+  <ellipse cx="400" cy="424" rx="176" ry="26" fill="#f3e6d7"/>
+       <ellipse cx="400" cy="420" rx="176" ry="24" fill="#fdf7ef"/>
+       <g transform="translate(400 330) scale(1.44) translate(-400 -330)">
+         
+    <path d="M258 232 L542 232 L542 412 Q400 448 258 412 Z" fill="url(#body-pistachio)"/>
+    <path d="M258 232 L542 232 L542 412 Q400 448 258 412 Z" fill="url(#side-pistachio)"/>
+    <ellipse cx="400" cy="232" rx="142" ry="30" fill="#fbfcee"/>
+    <ellipse cx="400" cy="231" rx="142" ry="28" fill="url(#top-pistachio)"/>
+    <path d="M258 232
+             c0 18 26 30 46 26 c16 -3 22 12 40 12 c20 0 24 -14 44 -14 c20 0 26 16 46 16 c18 0 24 -16 42 -16 c20 0 24 14 46 14 c18 0 24 -16 20 -38 Z"
+          fill="#f8fbea" opacity="0.96"/>
+    <path d="M258 232 q142 -34 284 0" fill="none" stroke="#00000014" stroke-width="2"/>
+         <path d="M262 300 q138 26 276 0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.22"/>
+          <path d="M262 356 q138 24 276 0" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.16"/>
+       </g>
+       <ellipse cx="390.0" cy="214.9" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(-18 390.0 214.9)"/><ellipse cx="381.9" cy="203.7" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(-28 381.9 203.7)"/><ellipse cx="452.5" cy="213.7" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(22 452.5 213.7)"/><ellipse cx="491.0" cy="207.0" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(-21 491.0 207.0)"/><ellipse cx="386.5" cy="217.5" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(-12 386.5 217.5)"/><ellipse cx="408.3" cy="207.4" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(13 408.3 207.4)"/><ellipse cx="445.5" cy="210.5" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(19 445.5 210.5)"/><ellipse cx="387.2" cy="212.9" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(-27 387.2 212.9)"/><ellipse cx="312.7" cy="200.6" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(17 312.7 200.6)"/><ellipse cx="491.1" cy="207.5" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(-1 491.1 207.5)"/><ellipse cx="431.5" cy="219.8" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(1 431.5 219.8)"/><ellipse cx="403.2" cy="223.3" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(-9 403.2 223.3)"/><ellipse cx="485.2" cy="204.1" rx="6.5" ry="9" fill="#7f9e4f" opacity="0.85" transform="rotate(-9 485.2 204.1)"/>
+</svg>

@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: cake-genius
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.17.1
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /opt/render/project/src/data/cake.db
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false   # set in the Render dashboard / API, never committed

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" role="img">
+  <defs>
+    <linearGradient id="bg-mini" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#fff6ee"/><stop offset="1" stop-color="#ffdcc0"/>
+    </linearGradient>
+    <linearGradient id="body-mini" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe8d0"/><stop offset="1" stop-color="#efc199"/>
+    </linearGradient>
+    <linearGradient id="side-mini" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.16"/>
+      <stop offset="0.4" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.12"/>
+    </linearGradient>
+    <radialGradient id="top-mini" cx="42%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fffbf5" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="vignette-mini" cx="50%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg-mini)"/>
+  <rect width="800" height="600" fill="url(#vignette-mini)"/>
+  <ellipse cx="400" cy="446" rx="186" ry="26" fill="#4a3126" opacity="0.13"/>
+  <ellipse cx="400" cy="442" rx="140" ry="16" fill="#4a3126" opacity="0.1"/>
+  <ellipse cx="400" cy="404" rx="215" ry="22" fill="#efe0cf"/>
+       <ellipse cx="300" cy="400" rx="52" ry="10" fill="#c9a887" opacity="0.45"/>
+          <path d="M262 338 L338 338 L332 400 L268 400 Z" fill="#d97b4a"/>
+          <ellipse cx="300" cy="338" rx="38" ry="12" fill="#fffdf8"/>
+          <ellipse cx="300" cy="338" rx="30" ry="8" fill="#fff"/>
+          <circle cx="292" cy="334" r="5" fill="#e07a5f"/>
+          <circle cx="310" cy="336" r="4" fill="#7f9e4f"/><ellipse cx="380" cy="400" rx="52" ry="10" fill="#c9a887" opacity="0.45"/>
+          <path d="M342 312 L418 312 L412 400 L348 400 Z" fill="#fff8ef"/>
+          <ellipse cx="380" cy="312" rx="38" ry="12" fill="#fffdf8"/>
+          <ellipse cx="380" cy="312" rx="30" ry="8" fill="#ffe6d1"/>
+          <circle cx="372" cy="308" r="5" fill="#e07a5f"/>
+          <circle cx="390" cy="310" r="4" fill="#7f9e4f"/><ellipse cx="460" cy="400" rx="52" ry="10" fill="#c9a887" opacity="0.45"/>
+          <path d="M422 338 L498 338 L492 400 L428 400 Z" fill="#d97b4a"/>
+          <ellipse cx="460" cy="338" rx="38" ry="12" fill="#fffdf8"/>
+          <ellipse cx="460" cy="338" rx="30" ry="8" fill="#fff"/>
+          <circle cx="452" cy="334" r="5" fill="#e07a5f"/>
+          <circle cx="470" cy="336" r="4" fill="#7f9e4f"/><ellipse cx="540" cy="400" rx="52" ry="10" fill="#c9a887" opacity="0.45"/>
+          <path d="M502 312 L578 312 L572 400 L508 400 Z" fill="#fff8ef"/>
+          <ellipse cx="540" cy="312" rx="38" ry="12" fill="#fffdf8"/>
+          <ellipse cx="540" cy="312" rx="30" ry="8" fill="#ffe6d1"/>
+          <circle cx="532" cy="308" r="5" fill="#e07a5f"/>
+          <circle cx="550" cy="310" r="4" fill="#7f9e4f"/>
+</svg>
