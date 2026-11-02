@@ -24,7 +24,8 @@
 
 | الفحص | الأمر | النتيجة |
 | --- | --- | --- |
-| بوابة التسليم | `vlab gate --config gate.config.cake-genius-1.2.json` | 1 PASS · 2 PASS · 3 PASS · 3.1 PASS · 3.2 PASS · 4 PASS → **DEMO READY** (مراحل النشر خارج النطاق) |
+| بوابة التسليم | `vlab gate --config gate.config.cake-genius-1.2.json` | 1 PASS · 2 PASS · 3 PASS · 3.1 PASS · 3.2 PASS · 4 PASS · 7.1 PASS → **DEMO READY** (مراحل النشر خارج النطاق) |
+| بقاء السجل بعد إعادة تشغيل | `persistenceProbe` داخل البوابة | الطلب `CG-1002` بقي مقروءاً بعد إعادة تشغيل العملية (`order.code = CG-1002`) |
 | اختبارات القبول القديمة | `BASE_URL=... node tests/acceptance.mjs` | **77/77** دون تغيير |
 | المستودع على SQLite | `node tests/storage.test.mjs` | **29/29** |
 | المستودع على PostgreSQL 18.6 | `TEST_PG_URL=... node tests/storage.test.mjs` | **29/29** |
@@ -35,9 +36,9 @@
 | وحدات 1.1 | cart-math / ai-guard / client-ip | 19/19 · 6/6 · 10/10 |
 | E2E متصفح | Playwright عبر البوابة | طلب كامل من المتجر، دخول الإدارة، لوحة اليوم، معاينة واتساب، إنشاء منتج: **PASS** |
 | إتاحة | `vlab a11y` | 27 فحصاً على المتجر و23 على لوحة الدخول، **0 مخالفة** |
-| أداء | Lighthouse (البوابة) | LCP 605ms · CLS 0.000 · TBT 70ms |
+| أداء | Lighthouse (البوابة) | LCP 651ms · CLS 0.000 · TBT 25ms |
 
-سجل البوابة: `C:\Users\Zulik\verification-lab\out\gate-cake-genius-1.2-2026-11-02T06-23-07-308Z.json`
+سجل البوابة: أحدث ملف في `C:\Users\Zulik\verification-lab\out\` بالبادئة `gate-cake-genius-1.2-`، ويُعتمد الأحدث زمنياً. إعداد البوابة نفسه محفوظ في المستودع وفي مجلد المختبر بنفس البصمة (`bd436c74…`).
 
 ### إثباتات بصرية
 

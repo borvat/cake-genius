@@ -69,6 +69,29 @@
       }
     ]
   },
+  "persistenceProbe": {
+    "create": {
+      "path": "/api/orders",
+      "method": "POST",
+      "body": {
+        "customer": { "name": "عميل البقاء", "phone": "0555000111" },
+        "items": [
+          {
+            "productId": "p-lotus",
+            "config": { "size": "s6", "flavor": "vanilla", "filling": "cream", "design": "classic", "deliveryMethod": "pickup" },
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    "idField": "order.code",
+    "read": {
+      "method": "POST",
+      "path": "/api/orders/lookup",
+      "body": { "code": "{{id}}", "phone": "0555000111" }
+    },
+    "verify": { "path": "order.code", "equals": "{{id}}" }
+  },
   "github": null,
   "live": null
 }
