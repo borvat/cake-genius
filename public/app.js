@@ -1,4 +1,5 @@
 /* Cake Genius storefront (vanilla ES modules, no build step). */
+import { cartTotals as computeCartTotals, lineTotals, clampQty } from './lib/cart-math.js';
 
 const state = {
   lang: localStorage.getItem('cg_lang') || 'ar',
@@ -25,7 +26,8 @@ const I18N = {
     catalogTitle: 'قائمة الكيك', catalogSub: 'كل سعر يبدأ من نسخة 6 إنش بالخيارات الافتراضية، ويُعاد حسابه عند التخصيص.',
     pricingTitle: 'كيف يُحسب السعر', pricingSub: 'لا اجتهاد ولا أسعار مخفية: القواعد التالية مطبّقة على الخادم وتظهر لك في كل فاتورة.',
     footerNote: 'Cake Genius — نسخة تجريبية. لا تُحصّل أي مبالغ ولا تُرسل رسائل للعملاء.', checkout: 'إتمام الطلب',
-    total: 'الإجمالي', quoteNote: 'السعر محسوب على الخادم ويُعاد التحقق منه عند إتمام الطلب.', addToCart: 'أضف إلى السلة',
+    total: 'الإجمالي', unitPrice: 'سعر الوحدة', unitBreakdown: 'تفاصيل سعر الوحدة', lineTotal: 'إجمالي السطر', cakesCount: 'الكمية {n}', quoteNote: 'السعر محسوب على الخادم ويُعاد التحقق منه عند إتمام الطلب.', addToCart: 'أضف إلى السلة',
+    totalMismatch: 'اختلف الإجمالي المعروض عن إجمالي الخادم — المعتمد هو إجمالي الخادم.',
     currency: 'ر.س', loading: 'جارٍ التحميل…', from: 'يبدأ من', customize: 'خصصها', emptyFilters: 'لا يوجد منتج في هذه الفئة.',
     size: 'الحجم', flavor: 'النكهة', filling: 'الحشوة', design: 'التصميم', message: 'الرسالة على الكيك',
     messageHint: 'حتى 30 حرفاً مجاناً، وبعدها 12 ر.س لكل 20 حرفاً.', messagePlaceholder: 'مثال: كل عام وأنت بخير يا سارة',
@@ -54,7 +56,8 @@ const I18N = {
     catalogTitle: 'The menu', catalogSub: 'Every price starts from the 6" default configuration and is recomputed when you customise.',
     pricingTitle: 'How the price is built', pricingSub: 'No hidden numbers: these rules run on the server and are shown on every quote.',
     footerNote: 'Cake Genius — demo build. No money is collected and no customer messages are sent.', checkout: 'Checkout',
-    total: 'Total', quoteNote: 'Computed server-side and re-verified when the order is placed.', addToCart: 'Add to cart',
+    total: 'Total', unitPrice: 'Unit price', unitBreakdown: 'Unit price breakdown', lineTotal: 'Line total', cakesCount: 'qty {n}', quoteNote: 'Computed server-side and re-verified when the order is placed.', addToCart: 'Add to cart',
+    totalMismatch: 'The displayed total differed from the server total — the server total is authoritative.',
     currency: 'SAR', loading: 'Loading…', from: 'from', customize: 'Customise', emptyFilters: 'No products in this category.',
     size: 'Size', flavor: 'Flavour', filling: 'Filling', design: 'Design', message: 'Message on the cake',
     messageHint: 'Free up to 30 characters, then 12 SAR for each 20 characters.', messagePlaceholder: 'e.g. Happy birthday Sara',
@@ -264,12 +267,28 @@ function renderCustomFields() {
 
   const qtyField = document.createElement('div');
   qtyField.className = 'field';
-  qtyField.innerHTML = `<span class="field-label">${escapeHtml(t('qty'))}</span>
-    <input id="qtyInput" type="number" min="1" max="20" step="1" value="${c.qty}" style="max-width:120px" />`;
-  qtyField.querySelector('#qtyInput').addEventListener('change', (e) => {
-    const v = Math.max(1, Math.min(20, Number(e.target.value) || 1));
-    e.target.value = v;
-    c.qty = v;
+  qtyField.innerHTML = `
+    <span class="field-label">${escapeHtml(t('qty'))}</span>
+    <div class="stepper" role="group" aria-label="${escapeHtml(t('qty'))}">
+      <button type="button" class="step-btn" data-step="-1" aria-label="minus">−</button>
+      <input id="qtyInput" type="number" inputmode="numeric" min="1" max="20" step="1" value="${c.qty}" />
+      <button type="button" class="step-btn" data-step="1" aria-label="plus">+</button>
+    </div>`;
+  const qtyInput = qtyField.querySelector('#qtyInput');
+  const applyQty = (value, force) => {
+    c.qty = clampQty(value);
+    if (force) qtyInput.value = String(c.qty);
+    renderQuotePanel(); // pure arithmetic on the server quote: no network, instant
+  };
+  qtyInput.addEventListener('input', () => {
+    const v = Number(qtyInput.value);
+    // While typing, only accept a complete value in range so "12" is typeable.
+    if (Number.isInteger(v) && v >= 1 && v <= 20) applyQty(v, false);
+  });
+  qtyInput.addEventListener('change', () => applyQty(qtyInput.value, true));
+  qtyInput.addEventListener('blur', () => applyQty(qtyInput.value, true));
+  qtyField.querySelectorAll('[data-step]').forEach((btn) => {
+    btn.addEventListener('click', () => applyQty(clampQty(c.qty) + Number(btn.dataset.step), true));
   });
   box.append(qtyField);
 }
@@ -285,17 +304,42 @@ async function refreshQuote() {
     const { quote } = await api('/api/quote', { method: 'POST', body: payload });
     if (state.custom !== c) return;
     c.quote = quote;
-    $('#quoteLines').innerHTML = quote.breakdown
-      .map((b) => `<div><span>${escapeHtml(label(b) || b.key)}</span><span>${money(b.amount)}</span></div>`)
-      .join('');
-    $('#quoteTotal').textContent = money(quote.total);
-    $('#quoteBox').dataset.total = String(quote.total);
+    renderQuotePanel();
   } catch (err) {
     $('#quoteLines').innerHTML = '';
+    $('#quoteUnit').textContent = '—';
+    $('#quoteMath').innerHTML = '';
     $('#quoteTotal').textContent = '—';
     errBox.textContent = err.message || t('errGeneric');
     errBox.classList.add('is-visible');
   }
+}
+
+/**
+ * Renders the money panel from the server quote + the chosen quantity.
+ * The unit price never changes with quantity; the line total does. Both are shown
+ * explicitly so "312 x 2" can never look like "312".
+ */
+function renderQuotePanel() {
+  const c = state.custom;
+  if (!c || !c.quote) return;
+  const q = c.quote;
+  const lt = lineTotals(q.cakeSubtotal + q.rushFee, q.deliveryFee, c.qty);
+  $('#quoteUnit').textContent = money(lt.unitPrice);
+  $('#quoteLines').innerHTML = q.breakdown
+    .map((b) => `<div><span>${escapeHtml(label(b) || b.key)}</span><span>${money(b.amount)}</span></div>`)
+    .join('');
+  const rows = [
+    `<div class="qmath"><span>${escapeHtml(t('unitPrice'))}</span><span>${money(lt.unitPrice)}</span></div>`,
+    `<div class="qmath"><span>${escapeHtml(t('qty'))} × ${lt.quantity}</span><span>${money(lt.cakes)}</span></div>`,
+  ];
+  if (lt.delivery) rows.push(`<div class="qmath"><span>${escapeHtml(t('deliveryFee'))}</span><span>${money(lt.delivery)}</span></div>`);
+  $('#quoteMath').innerHTML = rows.join('');
+  $('#quoteTotalLabel').textContent = lt.quantity > 1 ? `${t('lineTotal')} (${t('cakesCount').replace('{n}', lt.quantity)})` : t('total');
+  $('#quoteTotal').textContent = money(lt.total);
+  $('#quoteBox').dataset.unit = String(lt.unitPrice);
+  $('#quoteBox').dataset.qty = String(lt.quantity);
+  $('#quoteBox').dataset.total = String(lt.total);
 }
 
 function openCustomizer(product, preset) {
@@ -326,9 +370,7 @@ function cartCount() {
 }
 
 function cartTotals() {
-  const cakes = state.cart.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
-  const delivery = state.cart.reduce((s, l) => s + l.deliveryFee * l.quantity, 0);
-  return { cakes, delivery, total: cakes + delivery };
+  return computeCartTotals(state.cart);
 }
 
 function saveCart() {
@@ -364,6 +406,7 @@ function renderCart() {
     const dg = r.designs.find((s) => s.id === line.config.design);
     const el = document.createElement('div');
     el.className = 'cart-line';
+    const lt = lineTotals(line.unitPrice, line.deliveryFee, line.quantity);
     el.innerHTML = `
       <img src="${escapeHtml(line.image)}" alt="" width="68" height="68" />
       <div class="info">
@@ -373,17 +416,19 @@ function renderCart() {
         <div class="meta">${line.config.deliveryAt ? new Date(line.config.deliveryAt).toLocaleString(state.lang === 'ar' ? 'ar-SA' : 'en-GB') : ''}</div>
         <div class="qty">
           <button type="button" data-act="dec" aria-label="minus">−</button>
-          <span>${line.quantity}</span>
+          <span class="qty-val" data-qty>${lt.quantity}</span>
           <button type="button" data-act="inc" aria-label="plus">+</button>
-          <span style="margin-inline-start:auto;font-weight:700">${money((line.unitPrice + line.deliveryFee) * line.quantity)}</span>
+          <span class="line-math" data-math>${money(lt.unitPrice)} × ${lt.quantity}</span>
+          <span class="line-total" data-line-total>${money(lt.cakes)}</span>
         </div>
+        ${lt.delivery ? `<div class="meta line-delivery">${escapeHtml(t('deliveryFee'))}: ${money(lt.delivery)}</div>` : ''}
       </div>`;
     el.querySelector('[data-act="dec"]').addEventListener('click', () => {
-      line.quantity = Math.max(1, line.quantity - 1);
+      line.quantity = clampQty(line.quantity - 1);
       saveCart(); renderCart();
     });
     el.querySelector('[data-act="inc"]').addEventListener('click', () => {
-      line.quantity = Math.min(20, line.quantity + 1);
+      line.quantity = clampQty(line.quantity + 1);
       saveCart(); renderCart();
     });
     const rm = document.createElement('button');
@@ -424,6 +469,10 @@ function openCheckout() {
   if (!state.cart.length) { toast(t('emptyCartErr'), 'error'); return; }
   closeCart();
   const tt = cartTotals();
+  const lines = state.cart.map((line) => {
+    const lt = lineTotals(line.unitPrice, line.deliveryFee, line.quantity);
+    return `<div class="co-line"><span>${escapeHtml(line.name[state.lang])} — ${money(lt.unitPrice)} × ${lt.quantity}</span><span>${money(lt.cakes)}</span></div>`;
+  }).join('');
   const pane = $('#checkoutPane');
   pane.innerHTML = `
     <h2>${escapeHtml(t('checkoutTitle'))}</h2>
@@ -436,11 +485,13 @@ function openCheckout() {
       </div>
       <div class="field"><label for="cNotes">${escapeHtml(t('notes'))}</label><textarea id="cNotes" name="notes" rows="2" maxlength="400"></textarea></div>
       <div class="quote-box">
+        <div class="co-lines">${lines}</div>
         <div class="quote-lines">
           <div><span>${escapeHtml(t('subtotal'))}</span><span>${money(tt.cakes)}</span></div>
           <div><span>${escapeHtml(t('deliveryFee'))}</span><span>${money(tt.delivery)}</span></div>
         </div>
-        <div class="quote-total"><span>${escapeHtml(t('total'))}</span><span>${money(tt.total)}</span></div>
+        <div class="quote-total"><span>${escapeHtml(t('total'))}</span><span id="checkoutTotal">${money(tt.total)}</span></div>
+        <p class="quote-note">${escapeHtml(t('quoteNote'))}</p>
       </div>
       <div class="alert alert-error" id="checkoutError"></div>
       <button class="btn btn-accent btn-block" id="placeOrderBtn" type="submit">${escapeHtml(t('placeOrder'))}</button>
@@ -464,7 +515,12 @@ async function submitOrder(e) {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showErr(errBox, t('badEmail'));
 
   const deliveryAt = state.cart.map((l) => l.config.deliveryAt).filter(Boolean).sort()[0] || null;
-  const items = state.cart.map((l) => ({ productId: l.productId, config: l.config, quantity: l.quantity }));
+  const items = state.cart.map((l) => ({
+    productId: l.productId,
+    config: l.config,
+    quantity: clampQty(l.quantity),
+  }));
+  const clientTotal = cartTotals().total;
 
   btn.disabled = true;
   const original = btn.textContent;
@@ -474,7 +530,7 @@ async function submitOrder(e) {
     state.cart = [];
     saveCart();
     renderCart();
-    renderSuccess(data.order);
+    renderSuccess(data.order, clientTotal);
   } catch (err) {
     showErr(errBox, err.message || t('errGeneric'));
     btn.disabled = false;
@@ -487,13 +543,15 @@ function showErr(box, msg) {
   box.classList.add('is-visible');
 }
 
-function renderSuccess(order) {
+function renderSuccess(order, clientTotal) {
   const pane = $('#checkoutPane');
+  const money2 = (n) => money(n);
   const itemsHtml = order.items.map((it) => `
-    <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:4px 0">
-      <span>${escapeHtml(it.name[state.lang])} × ${it.quantity}</span>
-      <span>${money(it.lineTotal)}</span>
+    <div class="co-line">
+      <span>${escapeHtml(it.name[state.lang])} — ${money2(it.unitPrice)} × ${it.quantity}</span>
+      <span>${money2(it.lineTotal)}</span>
     </div>`).join('');
+  const mismatch = typeof clientTotal === 'number' && clientTotal !== order.total;
   pane.innerHTML = `
     <div class="success-card">
       <div class="success-mark">✓</div>
@@ -501,8 +559,13 @@ function renderSuccess(order) {
       <p class="muted">${escapeHtml(t('orderSuccessSub'))}</p>
       <div class="order-code">${escapeHtml(order.code)}</div>
       <div style="text-align:start;margin-block:16px">
-        ${itemsHtml}
-        <div class="quote-total"><span>${escapeHtml(t('total'))}</span><span>${money(order.total)}</span></div>
+        <div class="co-lines">${itemsHtml}</div>
+        <div class="quote-lines">
+          <div><span>${escapeHtml(t('subtotal'))}</span><span>${money2(order.subtotal)}</span></div>
+          <div><span>${escapeHtml(t('deliveryFee'))}</span><span>${money2(order.deliveryFee)}</span></div>
+        </div>
+        <div class="quote-total"><span>${escapeHtml(t('total'))}</span><span id="serverTotal">${money2(order.total)}</span></div>
+        ${mismatch ? `<div class="alert alert-error is-visible">${escapeHtml(t('totalMismatch'))} (${money2(clientTotal)} ≠ ${money2(order.total)})</div>` : ''}
         <div style="font-size:12.5px;color:var(--ink-soft);margin-block-start:8px">
           ${escapeHtml(order.customer.name)} · ${escapeHtml(order.customer.phone)} · ${escapeHtml(order.status)}
         </div>
@@ -622,17 +685,21 @@ async function boot() {
   $('#addToCartBtn').addEventListener('click', () => {
     const c = state.custom;
     if (!c || !c.quote) { toast(t('errGeneric'), 'error'); return; }
+    // Read the live input so a click without a blur can never add the stale quantity.
+    const qtyInput = document.querySelector('#qtyInput');
+    const quantity = clampQty(qtyInput ? qtyInput.value : c.qty);
+    const lt = lineTotals(c.quote.cakeSubtotal + c.quote.rushFee, c.quote.deliveryFee, quantity);
     addLine({
       productId: c.product.id,
       name: c.product.name,
       image: c.product.image,
       config: { ...c.quote.config },
-      unitPrice: c.quote.cakeSubtotal + c.quote.rushFee,
-      deliveryFee: c.quote.deliveryFee,
-      quantity: c.qty || 1,
+      unitPrice: lt.unitPrice,
+      deliveryFee: lt.delivery,
+      quantity: lt.quantity,
     });
     closeCustomizer();
-    toast(t('addToCartOk'), 'ok');
+    toast(`${t('addToCartOk')} — ${money(lt.unitPrice)} × ${lt.quantity} = ${money(lt.cakes)}`, 'ok');
     openCart();
   });
 

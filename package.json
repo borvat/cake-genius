@@ -1,6 +1,6 @@
 {
   "name": "cake-genius",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Cake Genius - bilingual (AR/EN) cake store with dynamic pricing, rule-based smart assistant, checkout and admin dashboard. Zero runtime dependencies.",
   "type": "module",
@@ -10,6 +10,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/acceptance.mjs"
+    "test": "node tests/cart-math.test.mjs && node tests/acceptance.mjs",
+    "test:unit": "node tests/cart-math.test.mjs",
+    "test:api": "node tests/acceptance.mjs"
   }
 }

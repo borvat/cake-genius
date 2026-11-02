@@ -21,6 +21,7 @@ import {
 import { quote, publicRules, PricingError, CURRENCY } from './lib/pricing.js';
 import { parse, suggest, buildReply } from './lib/assistant.js';
 import { CATEGORIES, ORDER_STATUSES } from './lib/catalog.js';
+import { lineTotals, isValidQty } from './public/lib/cart-math.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -30,7 +31,7 @@ const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.RENDER;
 // Render injects the deployed commit; prefer it over a manually pinned value so
 // /api/health always reports the code that is actually running.
 const COMMIT = process.env.RENDER_GIT_COMMIT || process.env.APP_COMMIT || 'dev';
-const VERSION = process.env.APP_VERSION || '1.0.0';
+const VERSION = process.env.APP_VERSION || JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
 
 openDb();
 const adminInfo = ensureAdmin();
@@ -347,34 +348,41 @@ async function handleApi(req, res, url) {
     const priced = [];
     let rushFee = 0;
     let deliveryFee = 0;
+    let cakesSubtotal = 0;
 
     for (const line of cart) {
       const product = getProduct(line.productId);
       if (!product) return send(res, 400, { error: 'PRODUCT_NOT_FOUND', message: `Unknown product ${line.productId}` });
-      const quantity = Number(line.quantity || 1);
-      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
-        return send(res, 400, { error: 'BAD_QUANTITY', message: 'Quantity must be 1-20' });
+      // Quantity is validated, never trusted: only a true integer 1..20 is accepted.
+      if (!isValidQty(line.quantity === undefined ? 1 : line.quantity)) {
+        return send(res, 400, { error: 'BAD_QUANTITY', message: 'Quantity must be an integer between 1 and 20' });
       }
+      const quantity = Number(line.quantity === undefined ? 1 : line.quantity);
       let q;
       try {
         q = quote(product, { ...line.config, deliveryAt });
       } catch (err) {
         return send(res, 400, { error: err.code || 'BAD_CONFIG', message: err.message });
       }
-      rushFee += q.rushFee * quantity;
-      deliveryFee += q.deliveryFee * quantity;
+      // Server-side line math: unit price comes from the pricing engine, quantity
+      // from the validated request. Any unitPrice/total sent by the browser is ignored.
+      const lt = lineTotals(q.cakeSubtotal + q.rushFee, q.deliveryFee, quantity);
+      rushFee += q.rushFee * lt.quantity;
+      deliveryFee += lt.delivery;
+      cakesSubtotal += lt.cakes;
       priced.push({
         productId: product.id,
         name: product.name,
         config: q.config,
-        quantity,
-        unitPrice: q.cakeSubtotal + q.rushFee,
+        quantity: lt.quantity,
+        unitPrice: lt.unitPrice,
+        lineTotal: lt.total,
         breakdown: q.breakdown,
       });
     }
 
-    const subtotal = priced.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
-    const total = subtotal + deliveryFee; // unitPrice holds cake + rush; delivery is added once per line
+    const subtotal = cakesSubtotal;
+    const total = subtotal + deliveryFee;
     if (total <= 0) return send(res, 400, { error: 'BAD_TOTAL', message: 'Invalid order total' });
 
     const order = createOrder({

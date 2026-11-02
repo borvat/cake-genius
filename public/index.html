@@ -127,8 +127,13 @@
           <p class="muted" id="customDesc"></p>
           <div id="customFields"></div>
           <div class="quote-box" id="quoteBox">
-            <div class="quote-lines" id="quoteLines"></div>
-            <div class="quote-total"><span data-i18n="total">الإجمالي</span><span id="quoteTotal">—</span></div>
+            <div class="quote-unit"><span data-i18n="unitPrice">سعر الوحدة</span><strong id="quoteUnit">—</strong></div>
+            <details class="quote-details" open>
+              <summary data-i18n="unitBreakdown">تفاصيل سعر الوحدة</summary>
+              <div class="quote-lines" id="quoteLines"></div>
+            </details>
+            <div class="quote-math" id="quoteMath"></div>
+            <div class="quote-total"><span id="quoteTotalLabel" data-i18n="total">الإجمالي</span><span id="quoteTotal">—</span></div>
             <p class="quote-note" data-i18n="quoteNote">السعر محسوب على الخادم ويُعاد التحقق منه عند إتمام الطلب.</p>
           </div>
           <div class="alert alert-error" id="customError"></div>

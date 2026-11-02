@@ -139,6 +139,66 @@ async function main() {
   const xssName = await req('/api/orders', { method: 'POST', expect: 400, body: { customer: { name: '<script>x</script>', phone }, items: cartItems } });
   check('markup in customer name rejected', xssName.status === 400);
 
+  /* 4b. quantity regression (BUG-001): unit price x quantity, end to end */
+  const lotusCfg = { size: 's8', flavor: 'pistachio', filling: 'cream', design: 'classic', deliveryMethod: 'delivery' };
+  const unitQuote = await req('/api/quote', { method: 'POST', expect: 200, body: { productId: 'p-lotus', config: lotusCfg } });
+  const unit = unitQuote.data.quote.cakeSubtotal + unitQuote.data.quote.rushFee;
+  const lineDelivery = unitQuote.data.quote.deliveryFee;
+  check(`unit price for the reported case is ${unit} SAR`, unit === 312, String(unit));
+
+  for (const q of [1, 2, 3]) {
+    const qPhone = '05' + String(Date.now()).slice(-6) + String(q);
+    const r = await req('/api/orders', {
+      method: 'POST', expect: 201,
+      body: { customer: { name: `كمية ${q}`, phone: qPhone }, items: [{ productId: 'p-lotus', config: lotusCfg, quantity: q }] },
+    });
+    const o = r.data.order;
+    check(`qty ${q}: order total = unit*qty + delivery (${unit * q} + ${lineDelivery} = ${unit * q + lineDelivery})`,
+      o.total === unit * q + lineDelivery, `${o.total}`);
+    check(`qty ${q}: order subtotal = ${unit * q}`, o.subtotal === unit * q, `${o.subtotal}`);
+    check(`qty ${q}: delivery charged once`, o.deliveryFee === lineDelivery, `${o.deliveryFee}`);
+    check(`qty ${q}: stored item quantity is ${q}`, o.items[0].quantity === q, `${o.items[0].quantity}`);
+    check(`qty ${q}: item line total = ${unit * q}`, o.items[0].lineTotal === unit * q, `${o.items[0].lineTotal}`);
+
+    // read back from the database through the public lookup route
+    const back = await req('/api/orders/lookup', { method: 'POST', expect: 200, body: { code: o.code, phone: qPhone } });
+    check(`qty ${q}: persisted order re-reads with the same total and quantity`,
+      back.data.order.total === o.total && back.data.order.items[0].quantity === q);
+  }
+
+  const tamper = await req('/api/orders', {
+    method: 'POST', expect: 201,
+    body: {
+      customer: { name: 'عميل تلاعب', phone: '05' + String(Date.now()).slice(-8) },
+      items: [{ productId: 'p-lotus', config: lotusCfg, quantity: 2, unitPrice: 1, lineTotal: 2, total: 2, price: 1 }],
+      total: 2, subtotal: 2,
+    },
+  });
+  check('client-sent unitPrice/lineTotal/total are ignored (server recomputes 312x2+25)',
+    tamper.data.order.total === 649 && tamper.data.order.items[0].unitPrice === 312 && tamper.data.order.items[0].quantity === 2,
+    `${tamper.data.order.total}`);
+
+  for (const bad of [0, 21, 2.5, 'two', null]) {
+    const r = await req('/api/orders', {
+      method: 'POST',
+      body: { customer: { name: 'كمية خاطئة', phone: '05' + String(Date.now()).slice(-8) }, items: [{ productId: 'p-lotus', config: lotusCfg, quantity: bad }] },
+    });
+    check(`quantity ${JSON.stringify(bad)} rejected with 400`, r.status === 400, `${r.status}`);
+  }
+
+  const mixed = await req('/api/orders', {
+    method: 'POST', expect: 201,
+    body: {
+      customer: { name: 'سلة مختلطة', phone: '05' + String(Date.now()).slice(-8) },
+      items: [
+        { productId: 'p-lotus', config: lotusCfg, quantity: 2 },
+        { productId: 'p-mini', config: { size: 's6', flavor: 'vanilla', filling: 'cream', design: 'classic', deliveryMethod: 'pickup' }, quantity: 1 },
+      ],
+    },
+  });
+  check('mixed cart sums both lines and charges delivery per line',
+    mixed.data.order.total === (unit * 2 + lineDelivery) + 120, `${mixed.data.order.total}`);
+
   /* 5. authorization */
   cookie = '';
   for (const path of ['/api/admin/orders', '/api/admin/stats', '/api/admin/customers', '/api/admin/products', '/api/admin/me']) {
