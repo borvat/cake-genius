@@ -49,7 +49,8 @@ async function main() {
 
   const cfg = await req('/api/config', { expect: 200 });
   check('pricing rules exposed to client', cfg.data.rules.sizes.length === 4 && cfg.data.rules.flavors.length === 5);
-  check('not a fake LLM (engine is declared rule-based)', cfg.data.assistant.engine === 'rule-based-nlu-v1');
+  check('assistant engine declared honestly (rule-based when no key, llm-* when key)',
+    cfg.data.assistant.engine === 'rule-based-nlu-v1' || /^llm-/.test(cfg.data.assistant.engine), cfg.data.assistant.engine);
 
   /* 2. pricing math - recomputed independently from the exposed rules */
   const rules = cfg.data.rules;

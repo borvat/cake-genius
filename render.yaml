@@ -19,3 +19,9 @@ services:
         value: admin
       - key: ADMIN_PASSWORD
         sync: false   # set in the Render dashboard / API, never committed
+      - key: DEEPSEEK_API_KEY
+        sync: false   # set in the Render dashboard / API, never committed
+      - key: DEEPSEEK_MODEL
+        value: deepseek-v4-pro
+      - key: TRUSTED_PROXIES
+        sync: false   # comma-separated trusted proxy IPs/CIDRs (e.g. Render's proxy); required for correct client IP

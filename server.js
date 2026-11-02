@@ -20,7 +20,12 @@ import {
 } from './lib/db.js';
 import { quote, publicRules, PricingError, CURRENCY } from './lib/pricing.js';
 import { parse, suggest, buildReply } from './lib/assistant.js';
+import {
+  design, aiAvailable, aiModel, aiUsage, aiGuardConfig,
+  checkAiRateLimit, acquireAiSlot, releaseAiSlot,
+} from './lib/ai-assistant.js';
 import { CATEGORIES, ORDER_STATUSES } from './lib/catalog.js';
+import { parseTrustedProxies, resolveClientIp } from './lib/client-ip.js';
 import { lineTotals, isValidQty } from './public/lib/cart-math.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -193,10 +198,14 @@ function clearLoginFailures(ip) {
   loginAttempts.delete(ip);
 }
 
+// Trusted reverse proxies (exact IP or CIDR). X-Forwarded-For is trusted ONLY when the
+// direct peer matches one of these — never on NODE_ENV=production alone (an exposed app
+// would then trust attacker-supplied headers). Render operators must list Render's proxy
+// IPs here; see README §7.
+const TRUSTED_PROXIES = parseTrustedProxies(process.env.TRUSTED_PROXIES);
+
 function clientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
-  return req.socket.remoteAddress || 'unknown';
+  return resolveClientIp(req.socket.remoteAddress, req.headers['x-forwarded-for'], TRUSTED_PROXIES);
 }
 
 /* ---------------- auth guard ---------------- */
@@ -214,7 +223,12 @@ function requireAdmin(req, res) {
 /* ---------------- static ---------------- */
 
 function serveStatic(req, res, urlPath) {
-  let rel = decodeURIComponent(urlPath.split('?')[0]);
+  let rel;
+  try {
+    rel = decodeURIComponent(urlPath.split('?')[0]);
+  } catch {
+    return sendText(res, 400, 'Bad request');
+  }
   if (rel === '/' || rel === '') rel = '/index.html';
   if (rel === '/admin' || rel === '/admin/') rel = '/admin.html';
   const filePath = path.normalize(path.join(PUBLIC_DIR, rel));
@@ -224,7 +238,10 @@ function serveStatic(req, res, urlPath) {
   }
   fs.stat(filePath, (err, stat) => {
     if (err || !stat.isFile()) {
-      // SPA fallback for unknown non-API paths
+      // A missing asset (has an extension) is a real 404, not an HTML page —
+      // otherwise a broken <script>/<link> reference is silently masked by a 200.
+      if (path.extname(rel) !== '') return sendText(res, 404, 'Not found');
+      // SPA fallback for extension-less unknown paths only
       const index = path.join(PUBLIC_DIR, 'index.html');
       fs.readFile(index, (e2, buf) => {
         if (e2) return sendText(res, 404, 'Not found');
@@ -259,6 +276,18 @@ function serveStatic(req, res, urlPath) {
 
 /* ---------------- API ---------------- */
 
+function aiFallbackPayload(message, lang) {
+  const constraints = parse(message).constraints;
+  const result = suggest(listProducts({}), constraints, 3);
+  const reply = buildReply(result.suggestions, constraints, lang || 'ar');
+  return {
+    reply, understood: constraints, suggestions: result.suggestions,
+    engine: 'rule-based-nlu-v1', fallback: true, model: null,
+    needsClarification: false, questions: [], impossible: false, alternatives: [],
+    note: 'AI engine unavailable; fell back to the rule-based assistant.',
+  };
+}
+
 async function handleApi(req, res, url) {
   const p = url.pathname;
   const method = req.method;
@@ -272,6 +301,7 @@ async function handleApi(req, res, url) {
       uptimeSeconds: Math.round(process.uptime()),
       ordersStored: listOrders({ limit: 1000 }).length,
       db: path.basename(dbPath()),
+      ai: { available: aiAvailable(), model: aiModel(), requests: aiUsage().requests, totalTokens: aiUsage().totalTokens },
       startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(),
     });
   }
@@ -282,7 +312,12 @@ async function handleApi(req, res, url) {
       rules: publicRules(),
       categories: CATEGORIES,
       statuses: ORDER_STATUSES,
-      assistant: { engine: 'rule-based-nlu-v1', externalProvider: false },
+      assistant: {
+        ...(aiAvailable()
+          ? { engine: `llm-${aiModel()}`, externalProvider: true, model: aiModel(), available: true }
+          : { engine: 'rule-based-nlu-v1', externalProvider: false, available: false }),
+        guard: aiGuardConfig(),
+      },
     });
   }
 
@@ -329,6 +364,43 @@ async function handleApi(req, res, url) {
       engine: 'rule-based-nlu-v1',
       note: 'Prices are computed by the same server-side pricing engine used at checkout.',
     });
+  }
+
+  if (p === '/api/assistant/ai' && method === 'POST') {
+    const body = await readJsonBody(req);
+    const message = String(body.message || '').slice(0, 500).trim();
+    if (message.length < 2) return send(res, 400, { error: 'EMPTY_MESSAGE', message: 'Please describe what you need' });
+
+    // No LLM configured -> rule-based fallback without touching any quota.
+    if (!aiAvailable()) return send(res, 200, aiFallbackPayload(message, body.lang));
+
+    // Consumption protection: per-IP rate limit (trusted client IP) then a global
+    // concurrency slot. A clear 429 + Retry-After when either guard trips.
+    const ip = clientIp(req);
+    const limit = checkAiRateLimit(ip);
+    if (!limit.allowed) {
+      res.setHeader('Retry-After', String(limit.retryAfterSeconds));
+      return send(res, 429, { error: 'RATE_LIMITED', message: 'Too many AI requests. Try again later.', retryAfterSeconds: limit.retryAfterSeconds });
+    }
+    if (!acquireAiSlot()) {
+      res.setHeader('Retry-After', '1');
+      return send(res, 429, { error: 'AI_BUSY', message: 'The AI assistant is busy. Try again in a moment.' });
+    }
+    try {
+      const result = await design(message, { history: body.history, lang: body.lang });
+      return send(res, 200, {
+        ...result,
+        note: result.fallback
+          ? 'No model connection configured; using the rule-based assistant.'
+          : 'Prices are computed by the server-side pricing engine, never by the model.',
+      });
+    } catch (err) {
+      console.error('[ai]', err.message);
+      // Model failure -> degrade to the rule-based assistant, never a 500 to the customer.
+      return send(res, 200, aiFallbackPayload(message, body.lang));
+    } finally {
+      releaseAiSlot();
+    }
   }
 
   if (p === '/api/orders' && method === 'POST') {
@@ -439,6 +511,12 @@ async function handleApi(req, res, url) {
     const session = requireAdmin(req, res);
     if (!session) return;
     return send(res, 200, { user: { username: session.username }, expiresAt: session.expiresAt });
+  }
+
+  if (p === '/api/admin/ai-usage' && method === 'GET') {
+    const session = requireAdmin(req, res);
+    if (!session) return;
+    return send(res, 200, { available: aiAvailable(), model: aiModel(), usage: aiUsage() });
   }
 
   if (p === '/api/admin/stats' && method === 'GET') {
