@@ -45,11 +45,14 @@ async function main() {
 
   const cfg = await req('/api/config');
   if (!cfg.data.assistant?.available) {
-    console.log('SKIPPED — no LLM connection configured on the server (assistant.available=false).');
+    console.log('SKIPPED (BLOCKED) — AI acceptance NOT run: no LLM connection on the server (assistant.available=false). 0 passed, 0 failed; AI behaviour is UNVERIFIED here.');
     process.exit(0);
   }
   const model = cfg.data.assistant.model;
   check('config reports an LLM engine + model', /^llm-/.test(cfg.data.assistant.engine) && !!model, JSON.stringify(cfg.data.assistant));
+  check('config exposes the AI consumption guard (rate/concurrency/tokens)',
+    !!(cfg.data.assistant.guard && cfg.data.assistant.guard.rate?.max && cfg.data.assistant.guard.concurrency?.max && cfg.data.assistant.guard.tokens?.maxOutputPerRequest),
+    JSON.stringify(cfg.data.assistant.guard));
 
   /* 1. Arabic happy path */
   const a1 = await req('/api/assistant/ai', { method: 'POST', body: { message: 'عيد ميلاد لـ 12 شخص، كيكة شوكولاتة، ميزانية 400 ريال', lang: 'ar' } });

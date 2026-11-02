@@ -97,7 +97,9 @@ PORT=8080 DB_PATH=./data/cake.db node server.js
 
 ```bash
 node tests/acceptance.mjs        # 77 فحصاً عبر HTTP حقيقي
-node tests/ai-acceptance.mjs     # 21 فحصاً لمصمم الكيك بالذكاء الاصطناعي (يتخطى تلقائياً بدون مفتاح)
+node tests/ai-guard.test.mjs     # 6 فحوصات وحدوية لحماية الاستهلاك (حد الطلبات + التزامن + سقف التوكن)
+node tests/ai-acceptance.mjs     # 22 فحصاً لمصمم الكيك بالذكاء الاصطناعي (SKIPPED صراحةً بدون مفتاح)
+node tests/ai-fallback.mjs       # 16 فحصاً: الرجوع الآمن عند فشل النموذج + حد الطلبات 429 + تزوير XFF
 ```
 
 تغطي: صحة القائمة والصور، مطابقة حساب السعر بحساب مستقل من القواعد، رفض الخيارات غير الصحيحة،

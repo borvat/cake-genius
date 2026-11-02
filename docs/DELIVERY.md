@@ -10,10 +10,13 @@
 
 ## 1. Verdict
 
-**READY (engineering)** — the AI Cake Designer genuinely invokes an LLM and every
-price it returns is verified against the server pricing engine. **Not pushed, not
-merged, not deployed** — withheld per the mandate ("Do not merge into main or deploy
-to Render until … the owner has explicitly approved") and the standing no-publish rule.
+**READY (engineering)** — the AI Cake Designer genuinely invokes an LLM and every price
+it returns is verified against the server pricing engine. **Not merged, not deployed.**
+Branch `feature/ai-cake-designer` is pushed and **PR #1 is open for review** (base `main`,
+head `feature/ai-cake-designer`); `main` (the original Flash work) is untouched.
+
+Independent review verdict on PR #1: **CHANGES REQUESTED** (P0/P1) — addressed in the
+same branch, see §8.
 
 ---
 
@@ -78,8 +81,10 @@ Reproduced from a clean SQLite file, real HTTP, real LLM:
 | Suite | Result |
 |---|---|
 | `tests/cart-math.test.mjs` (unit) | **19 passed, 0 failed** |
+| `tests/ai-guard.test.mjs` (unit: rate limit + concurrency) | **6 passed, 0 failed** |
 | `tests/acceptance.mjs` (API, no key needed) | **77 passed, 0 failed** |
-| `tests/ai-acceptance.mjs` (LLM) | **21 passed, 0 failed** |
+| `tests/ai-acceptance.mjs` (LLM) | **22 passed, 0 failed** |
+| `tests/ai-fallback.mjs` (model-failure fallback + 429 + forged-XFF) | **16 passed, 0 failed** |
 
 Key assertions (all passing): every AI price == `/api/quote` recompute for the same
 config; manipulated price ignored; dietary request marked impossible with real
@@ -122,15 +127,42 @@ cache hit/miss split.
 
 ## 7. Remaining risks & limitations
 
-- **No push/merge/deploy performed** — branch is local only; needs owner approval to
-  publish for review.
+- **Not merged, not deployed** — PR #1 open, awaiting independent review approval.
 - **Model latency/cost:** `deepseek-v4-pro` is a reasoning model; per-request latency is
   several seconds. A cheaper `deepseek-flash` fallback could be wired for high-traffic use.
 - **Prompt-cache cost is an estimate** (upper bound reported; exact split not aggregated).
-- **Rate limiter** now keys on `socket.remoteAddress` locally and XFF only behind a proxy
-  (`IS_PROD`); on Render the first XFF hop remains client-influenced — noted, acceptable
-  for a demo.
+- **Rate limiting** keys on the trusted client IP: `socket.remoteAddress` outside a proxy,
+  and the rightmost `X-Forwarded-For` hop behind a trusted proxy (`IS_PROD` or
+  `TRUSTED_PROXIES`). Left-side header spoofing cannot shift the bucket.
 - **No stock/availability model exists** in the app at all, so the AI cannot (and is
   instructed not to) claim any — consistent with the mandate.
 - Demo checkout (`payment_method: demo`) and Render free-tier data volatility are
   unchanged (README §10).
+
+---
+
+## 8. Review feedback (PR #1) — addressed
+
+**P0 — AI API cost protection.** `POST /api/assistant/ai` now enforces, before any model
+call: a per-IP fixed-window rate limit (`AI_RATE_WINDOW_MS`/`AI_RATE_MAX`, default
+20/min), a global concurrency semaphore (`AI_MAX_CONCURRENT`, default 4), and a hard
+per-request output-token cap (`MAX_OUTPUT_TOKENS` = 8000). Violations return a clear
+`429` + `Retry-After`. The limiter keys on the **trusted** client IP (see P1), never on a
+raw `X-Forwarded-For`. Guard config is exposed at `/api/config` (`assistant.guard`).
+
+**P1 — Trust proxy.** `clientIp()` now trusts `X-Forwarded-For` only behind a trusted
+reverse proxy — the production flag (`IS_PROD`) or an explicit `TRUSTED_PROXIES`
+allowlist matched against the direct peer. It takes the **rightmost** hop (appended by the
+trusted proxy), so a client prepending forged hops on the left cannot shift the identity.
+Outside a proxy the peer socket is authoritative. Covered by `tests/ai-fallback.mjs`
+(model-failure fallback, active `429`, and a 7-attempt forged/repeated `X-Forwarded-For`
+login test that still hits `429`).
+
+**P1 — AI acceptance.** Without an LLM, `tests/ai-acceptance.mjs` now prints
+`SKIPPED (BLOCKED) — AI behaviour UNVERIFIED` and exits 0 (never a false pass). Two new
+suites prove the guards: `tests/ai-guard.test.mjs` (rate limit + concurrency, unit) and
+`tests/ai-fallback.mjs` (model failure → safe rule-based fallback with `fallback: true`,
+plus an active `429 RATE_LIMITED` with `Retry-After`).
+
+**P1 — Delivery evidence.** This report now reflects reality: branch pushed, PR #1 open,
+not merged, not deployed (verified `mergedAt: null`).

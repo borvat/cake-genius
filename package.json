@@ -10,8 +10,11 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/cart-math.test.mjs && node tests/acceptance.mjs",
-    "test:unit": "node tests/cart-math.test.mjs",
-    "test:api": "node tests/acceptance.mjs"
+    "test": "node tests/cart-math.test.mjs && node tests/ai-guard.test.mjs && node tests/acceptance.mjs",
+    "test:unit": "node tests/cart-math.test.mjs && node tests/ai-guard.test.mjs",
+    "test:api": "node tests/acceptance.mjs",
+    "test:ai": "node tests/ai-acceptance.mjs",
+    "test:ai-guard": "node tests/ai-guard.test.mjs",
+    "test:ai-fallback": "node tests/ai-fallback.mjs"
   }
 }

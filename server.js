@@ -20,7 +20,10 @@ import {
 } from './lib/db.js';
 import { quote, publicRules, PricingError, CURRENCY } from './lib/pricing.js';
 import { parse, suggest, buildReply } from './lib/assistant.js';
-import { design, aiAvailable, aiModel, aiUsage } from './lib/ai-assistant.js';
+import {
+  design, aiAvailable, aiModel, aiUsage, aiGuardConfig,
+  checkAiRateLimit, acquireAiSlot, releaseAiSlot,
+} from './lib/ai-assistant.js';
 import { CATEGORIES, ORDER_STATUSES } from './lib/catalog.js';
 import { lineTotals, isValidQty } from './public/lib/cart-math.js';
 
@@ -194,16 +197,23 @@ function clearLoginFailures(ip) {
   loginAttempts.delete(ip);
 }
 
+// Trusted reverse proxies: when the direct peer matches one of these, X-Forwarded-For
+// is trusted; otherwise the peer socket is authoritative and any client-supplied header
+// is ignored (so rotating X-Forwarded-For cannot defeat rate limiting).
+const TRUSTED_PROXIES = new Set((process.env.TRUSTED_PROXIES || '').split(',').map((s) => s.trim()).filter(Boolean));
+
 function clientIp(req) {
-  // Trust X-Forwarded-For only behind a trusted reverse proxy (production),
-  // where the proxy terminates TLS and sets the header. Otherwise a direct
-  // attacker could rotate the header to get a fresh rate-limit budget and
-  // defeat login throttling (AUDIT A1).
-  if (IS_PROD) {
-    const fwd = req.headers['x-forwarded-for'];
-    if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
-  }
-  return req.socket.remoteAddress || 'unknown';
+  const peer = req.socket.remoteAddress || 'unknown';
+  // Behind a trusted proxy only when the production flag is set (Render terminates TLS
+  // and sets XFF) or the direct peer is in the explicit TRUSTED_PROXIES allowlist.
+  const viaTrustedProxy = IS_PROD || TRUSTED_PROXIES.has(peer);
+  if (!viaTrustedProxy) return peer;
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd !== 'string' || !fwd.length) return peer;
+  const hops = fwd.split(',').map((s) => s.trim()).filter(Boolean);
+  // The trusted proxy appends the real client as the last hop; a client can only prepend
+  // their own (spoofed) hops on the left, so the rightmost value is the trustworthy one.
+  return hops[hops.length - 1] || peer;
 }
 
 /* ---------------- auth guard ---------------- */
@@ -274,6 +284,18 @@ function serveStatic(req, res, urlPath) {
 
 /* ---------------- API ---------------- */
 
+function aiFallbackPayload(message, lang) {
+  const constraints = parse(message).constraints;
+  const result = suggest(listProducts({}), constraints, 3);
+  const reply = buildReply(result.suggestions, constraints, lang || 'ar');
+  return {
+    reply, understood: constraints, suggestions: result.suggestions,
+    engine: 'rule-based-nlu-v1', fallback: true, model: null,
+    needsClarification: false, questions: [], impossible: false, alternatives: [],
+    note: 'AI engine unavailable; fell back to the rule-based assistant.',
+  };
+}
+
 async function handleApi(req, res, url) {
   const p = url.pathname;
   const method = req.method;
@@ -298,9 +320,12 @@ async function handleApi(req, res, url) {
       rules: publicRules(),
       categories: CATEGORIES,
       statuses: ORDER_STATUSES,
-      assistant: aiAvailable()
-        ? { engine: `llm-${aiModel()}`, externalProvider: true, model: aiModel(), available: true }
-        : { engine: 'rule-based-nlu-v1', externalProvider: false, available: false },
+      assistant: {
+        ...(aiAvailable()
+          ? { engine: `llm-${aiModel()}`, externalProvider: true, model: aiModel(), available: true }
+          : { engine: 'rule-based-nlu-v1', externalProvider: false, available: false }),
+        guard: aiGuardConfig(),
+      },
     });
   }
 
@@ -353,6 +378,22 @@ async function handleApi(req, res, url) {
     const body = await readJsonBody(req);
     const message = String(body.message || '').slice(0, 500).trim();
     if (message.length < 2) return send(res, 400, { error: 'EMPTY_MESSAGE', message: 'Please describe what you need' });
+
+    // No LLM configured -> rule-based fallback without touching any quota.
+    if (!aiAvailable()) return send(res, 200, aiFallbackPayload(message, body.lang));
+
+    // Consumption protection: per-IP rate limit (trusted client IP) then a global
+    // concurrency slot. A clear 429 + Retry-After when either guard trips.
+    const ip = clientIp(req);
+    const limit = checkAiRateLimit(ip);
+    if (!limit.allowed) {
+      res.setHeader('Retry-After', String(limit.retryAfterSeconds));
+      return send(res, 429, { error: 'RATE_LIMITED', message: 'Too many AI requests. Try again later.', retryAfterSeconds: limit.retryAfterSeconds });
+    }
+    if (!acquireAiSlot()) {
+      res.setHeader('Retry-After', '1');
+      return send(res, 429, { error: 'AI_BUSY', message: 'The AI assistant is busy. Try again in a moment.' });
+    }
     try {
       const result = await design(message, { history: body.history, lang: body.lang });
       return send(res, 200, {
@@ -364,15 +405,9 @@ async function handleApi(req, res, url) {
     } catch (err) {
       console.error('[ai]', err.message);
       // Model failure -> degrade to the rule-based assistant, never a 500 to the customer.
-      const constraints = parse(message).constraints;
-      const result = suggest(listProducts({}), constraints, 3);
-      const reply = buildReply(result.suggestions, constraints, body.lang || 'ar');
-      return send(res, 200, {
-        reply, understood: constraints, suggestions: result.suggestions,
-        engine: 'rule-based-nlu-v1', fallback: true, model: null,
-        needsClarification: false, questions: [], impossible: false, alternatives: [],
-        note: 'AI engine unavailable; fell back to the rule-based assistant.',
-      });
+      return send(res, 200, aiFallbackPayload(message, body.lang));
+    } finally {
+      releaseAiSlot();
     }
   }
 
