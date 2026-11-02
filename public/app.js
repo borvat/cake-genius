@@ -8,6 +8,7 @@ const state = {
   filter: 'all',
   cart: JSON.parse(localStorage.getItem('cg_cart') || '[]'),
   custom: null, // { product, config, quote }
+  history: [], // AI assistant multi-turn conversation
 };
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -42,7 +43,9 @@ const I18N = {
     rulesSize: 'الحجم (معامل على سعر القاعدة)', rulesFlavor: 'النكهة', rulesFilling: 'الحشوة', rulesDesign: 'التصميم',
     rulesFees: 'رسوم إضافية', rulesDelivery: 'التسليم', free: 'مجاني', base: 'سعر القاعدة (6 إنش)',
     chatTry: ['عيد ميلاد لـ 12 شخص، شوكولاتة، ميزانية 400', 'عرس بميزانية 900 ريال', 'كيك أطفال لـ 20 شخص', 'هدية للشركة بـ 500 ريال'],
-    adminNote: 'المساعد يعمل بقواعد لغة طبيعية (عربي/إنجليزي) ومحرك التسعير نفسه. لا يوجد اتصال بنموذج خارجي.',
+    adminNote: 'المساعد يفهم طلبك بنموذج لغوي (DeepSeek)، وكل الأسعار تُحسب على الخادم من محرك التسعير. النموذج لا يخترع أي سعر.',
+    aiAddToCart: 'أضف إلى السلة', aiQuestionsTitle: 'لأقترح لك بدقة، أحتاج توضيحاً:', aiAlternative: 'خيار بديل',
+    aiFallbackNote: 'المساعد يعمل بقواعد محلية (بدون نموذج لغوي).',
   },
   en: {
     skip: 'Skip to catalog', brandTag: 'Cakes made to order', navMenu: 'Menu', navAssistant: 'Smart assistant',
@@ -72,7 +75,9 @@ const I18N = {
     rulesSize: 'Size (multiplier on base)', rulesFlavor: 'Flavour', rulesFilling: 'Filling', rulesDesign: 'Design',
     rulesFees: 'Extra fees', rulesDelivery: 'Fulfilment', free: 'Free', base: 'Base price (6")',
     chatTry: ['Birthday for 12, chocolate, budget 400', 'Wedding with a 900 SAR budget', 'Kids cake for 20 people', 'Corporate gift for 500'],
-    adminNote: 'The assistant is a rule-based Arabic/English NLU layer over the same pricing engine. No external model is called.',
+    adminNote: 'The assistant uses a language model (DeepSeek) to understand your request; every price is computed server-side by the pricing engine. The model never invents a price.',
+    aiAddToCart: 'Add to cart', aiQuestionsTitle: 'To suggest precisely, I need to clarify:', aiAlternative: 'Alternative',
+    aiFallbackNote: 'Assistant running in rule-based mode (no LLM).',
   },
 };
 
@@ -596,7 +601,48 @@ function renderChips() {
   }
 }
 
-async function runAssistant(message) {
+function descOf(s) {
+  const r = state.config.rules;
+  const parts = [
+    label(r.sizes.find((x) => x.id === s.config.size)),
+    label(r.flavors.find((x) => x.id === s.config.flavor)),
+    label(r.designs.find((x) => x.id === s.config.design)),
+  ].filter(Boolean);
+  if (s.serves) parts.push(`${s.serves} ${state.lang === 'ar' ? 'شخصاً' : 'serves'}`);
+  return parts.join(' · ');
+}
+
+function renderAiCard(s, alternative = false) {
+  const card = document.createElement('div');
+  card.className = 'ar-card' + (alternative ? ' alt' : '');
+  const qtyBadge = s.quantity > 1 ? `<span class="ai-qty">×${s.quantity}</span>` : '';
+  card.innerHTML = `
+    <img src="${escapeHtml(s.image)}" alt="" width="62" height="62" />
+    <div style="flex:1;min-width:0">
+      <div class="t">${escapeHtml(s.name[state.lang])} ${qtyBadge}</div>
+      <div class="r">${alternative ? escapeHtml(t('aiAlternative')) : escapeHtml(descOf(s))}</div>
+      <div class="price">${money(s.price)}</div>
+    </div>
+    <div class="ai-actions">
+      <button class="btn btn-sm btn-accent ai-add" type="button">${escapeHtml(t('aiAddToCart'))}</button>
+      <button class="btn btn-sm btn-ghost ai-custom" type="button">${escapeHtml(t('viewDeal'))}</button>
+    </div>`;
+  card.querySelector('.ai-add').addEventListener('click', () => {
+    addLine({
+      productId: s.productId, name: s.name, image: s.image,
+      config: s.config, unitPrice: s.unitPrice, deliveryFee: s.deliveryFee, quantity: s.quantity,
+    });
+    toast(`${t('addToCartOk')} — ${money(s.unitPrice)} × ${s.quantity} = ${money(s.price)}`, 'ok');
+    openCart();
+  });
+  card.querySelector('.ai-custom').addEventListener('click', () => {
+    const product = state.products.find((p) => p.id === s.productId);
+    if (product) openCustomizer(product, s.config);
+  });
+  return card;
+}
+
+async function runAssistant(message, followUp = false) {
   const replyEl = $('#assistantReply');
   const resultsEl = $('#assistantResults');
   const btn = $('#assistantSubmit');
@@ -604,33 +650,41 @@ async function runAssistant(message) {
   resultsEl.innerHTML = '';
   btn.disabled = true;
   try {
-    const data = await api('/api/assistant', { method: 'POST', body: { message, lang: state.lang } });
-    replyEl.textContent = data.reply[state.lang];
-    const parts = [];
-    if (data.understood.budget) parts.push(`${state.lang === 'ar' ? 'الميزانية' : 'budget'}: ${money(data.understood.budget)}`);
-    if (data.understood.people) parts.push(`${state.lang === 'ar' ? 'الأشخاص' : 'people'}: ${data.understood.people}`);
-    if (data.understood.occasion) parts.push(`${state.lang === 'ar' ? 'المناسبة' : 'occasion'}: ${label({ label: { ar: OCCASION_AR[data.understood.occasion] || data.understood.occasion, en: data.understood.occasion } })}`);
-    if (data.understood.flavor) parts.push(`${state.lang === 'ar' ? 'النكهة' : 'flavour'}: ${label(state.config.rules.flavors.find((f) => f.id === data.understood.flavor))}`);
-    if (parts.length) replyEl.textContent += ` — ${parts.join(' · ')}`;
+    if (!followUp) state.history.push({ role: 'user', content: message });
+    const data = await api('/api/assistant/ai', {
+      method: 'POST',
+      body: { message, history: state.history.slice(0, -1), lang: state.lang },
+    });
+    state.history.push({ role: 'assistant', content: (data.reply && data.reply[state.lang]) || '' });
 
-    for (const s of data.suggestions) {
-      const card = document.createElement('div');
-      card.className = 'ar-card';
-      card.innerHTML = `
-        <img src="${escapeHtml(s.image)}" alt="" width="62" height="62" />
-        <div style="flex:1;min-width:0">
-          <div class="t">${escapeHtml(s.name[state.lang])}</div>
-          <div class="r">${escapeHtml(s.reason[state.lang])}</div>
-          <div class="price">${money(s.price)}</div>
-        </div>
-        <button class="btn btn-sm btn-accent" type="button">${escapeHtml(t('viewDeal'))}</button>`;
-      card.querySelector('button').addEventListener('click', () => {
-        const product = state.products.find((p) => p.id === s.productId);
-        if (product) openCustomizer(product, s.config);
-      });
-      resultsEl.append(card);
+    replyEl.textContent = data.reply[state.lang] || '';
+
+    if (data.needsClarification && data.questions.length) {
+      const q = document.createElement('div');
+      q.className = 'ai-questions';
+      q.innerHTML = `<p>${escapeHtml(t('aiQuestionsTitle'))}</p>`;
+      for (const question of data.questions) {
+        const qtext = question[state.lang] || question.ar || question.en || '';
+        if (!qtext) continue;
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip ai-q';
+        chip.textContent = qtext;
+        chip.addEventListener('click', () => {
+          $('#assistantInput').value = qtext;
+          runAssistant(qtext, true);
+        });
+        q.append(chip);
+      }
+      resultsEl.append(q);
     }
-    $('#engineNote').textContent = t('adminNote');
+
+    for (const s of data.suggestions) resultsEl.append(renderAiCard(s));
+    for (const a of data.alternatives) resultsEl.append(renderAiCard(a, true));
+
+    $('#engineNote').textContent = data.fallback
+      ? t('aiFallbackNote')
+      : `${data.engine} · ${data.note}`;
   } catch (err) {
     replyEl.textContent = err.message || t('errGeneric');
   } finally {
