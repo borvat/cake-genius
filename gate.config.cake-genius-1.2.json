@@ -1,0 +1,74 @@
+{
+  "name": "cake-genius-1.2",
+  "projectPath": "C:/Users/Zulik/cake-genius",
+  "vcsPath": "C:/Users/Zulik/cake-genius",
+  "scope": {
+    "deployment": "none",
+    "ci": false
+  },
+  "local": {
+    "port": 8791,
+    "start": [
+      "server.js"
+    ],
+    "env": {
+      "ADMIN_PASSWORD": "gate-pass",
+      "PUBLIC_URL": "http://127.0.0.1:8791"
+    }
+  },
+  "stages": {
+    "syntax": [
+      "node --check server.js"
+    ],
+    "tests": [
+      "node tests/cart-math.test.mjs",
+      "node tests/capacity.test.mjs",
+      "node tests/storage.test.mjs",
+      "node tests/migration.test.mjs",
+      "node tests/api-1.2.test.mjs",
+      "node tests/ai-guard.test.mjs",
+      "node tests/client-ip.test.mjs"
+    ]
+  },
+  "e2e": {
+    "spec": "tests/cake-genius-1.2.spec.js"
+  },
+  "security": {
+    "session": {
+      "path": "/api/admin/login",
+      "body": {
+        "username": "admin",
+        "password": "gate-pass"
+      }
+    },
+    "authz": [
+      {
+        "path": "/api/admin/orders",
+        "expect": 401,
+        "severity": "critical"
+      },
+      {
+        "path": "/api/admin/orders.csv",
+        "expect": 401,
+        "severity": "critical"
+      },
+      {
+        "path": "/api/admin/settings",
+        "expect": 401,
+        "severity": "critical"
+      },
+      {
+        "path": "/api/admin/day",
+        "expect": 401,
+        "severity": "critical"
+      },
+      {
+        "path": "/api/admin/products",
+        "expect": 401,
+        "severity": "critical"
+      }
+    ]
+  },
+  "github": null,
+  "live": null
+}

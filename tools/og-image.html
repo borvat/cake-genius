@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>Cake Genius — OG</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
+    background: #fdf8f2;
+    color: #2b201a;
+    position: relative;
+  }
+  .glow {
+    position: absolute; inset: -20%;
+    background:
+      radial-gradient(680px 420px at 88% 8%, rgba(196,101,63,.20), transparent 60%),
+      radial-gradient(620px 420px at 8% 92%, rgba(127,158,79,.18), transparent 60%);
+  }
+  .frame { position: absolute; inset: 28px; border: 1px solid rgba(43,32,26,.14); border-radius: 26px; }
+  .content {
+    position: absolute; inset: 0; padding: 76px 84px;
+    display: flex; align-items: center; justify-content: space-between; gap: 40px;
+  }
+  .copy { max-width: 660px; }
+  .eyebrow { display: flex; align-items: center; gap: 10px; font-size: 22px; letter-spacing: .4px; color: #a04f2e; font-weight: 700; }
+  .eyebrow .dot { width: 10px; height: 10px; border-radius: 50%; background: #c4653f; }
+  h1 { font-family: Georgia, "Noto Naskh Arabic", "Traditional Arabic", serif; font-size: 66px; line-height: 1.18; margin-block: 22px 18px; font-weight: 700; }
+  h1 em { color: #c4653f; font-style: normal; }
+  p { font-size: 23px; line-height: 1.6; color: #6b5547; max-width: 600px; }
+  .chips { display: flex; gap: 10px; margin-block-start: 30px; flex-wrap: wrap; }
+  .chip { font-size: 18px; padding: 8px 16px; border-radius: 999px; background: #fff; border: 1px solid rgba(43,32,26,.14); color: #2b201a; }
+  .art { width: 340px; flex: 0 0 340px; filter: drop-shadow(0 26px 40px rgba(43,32,26,.18)); }
+  .url { position: absolute; inset-inline-start: 84px; inset-block-end: 46px; font-size: 20px; color: #6b5547; letter-spacing: .5px; }
+  .brand { position: absolute; inset-inline-end: 84px; inset-block-end: 42px; display: flex; align-items: center; gap: 12px; font-size: 21px; font-weight: 700; }
+  .brand span { color: #6b5547; font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="frame"></div>
+  <div class="content">
+    <div class="copy">
+      <div class="eyebrow"><span class="dot"></span> كيك جينيوس · الرياض</div>
+      <h1>كيكة تُصنع على <em>مقاسك</em>، بسعرٍ تعرفه قبل الطلب.</h1>
+      <p>اختر الحجم والنكهة والحشوة والتصميم، شاهد السعر لحظياً، واحجز موعد التسليم.</p>
+      <div class="chips">
+        <span class="chip">تسعير لحظي</span>
+        <span class="chip">سعة يومية حقيقية</span>
+        <span class="chip">تأكيد واتساب</span>
+      </div>
+    </div>
+    <svg class="art" viewBox="0 0 320 320" aria-hidden="true">
+      <defs>
+        <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fffaf3"/><stop offset="1" stop-color="#f3e3cd"/>
+        </linearGradient>
+        <linearGradient id="pist" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#c8d5a0"/><stop offset="1" stop-color="#8fa566"/>
+        </linearGradient>
+        <linearGradient id="choc" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#7a5238"/><stop offset="1" stop-color="#4b2f20"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="160" cy="286" rx="118" ry="16" fill="rgba(43,32,26,.12)"/>
+      <rect x="52" y="196" width="216" height="72" rx="16" fill="url(#choc)"/>
+      <rect x="52" y="188" width="216" height="22" rx="11" fill="url(#cream)"/>
+      <rect x="66" y="126" width="188" height="70" rx="14" fill="url(#pist)"/>
+      <rect x="66" y="118" width="188" height="20" rx="10" fill="#fffaf3"/>
+      <rect x="84" y="62" width="152" height="62" rx="12" fill="url(#cream)"/>
+      <path d="M84 92c14 10 28-10 42 0s28 8 40 0 26 8 34 0 22 6 36 0v-30H84z" fill="#fffdf8"/>
+      <circle cx="112" cy="60" r="7" fill="#b0342c"/>
+      <circle cx="146" cy="52" r="6" fill="#c4653f"/>
+      <circle cx="182" cy="58" r="7" fill="#7f9e4f"/>
+      <circle cx="214" cy="50" r="5" fill="#c69b6d"/>
+      <rect x="150" y="34" width="6" height="22" rx="3" fill="#c69b6d"/>
+      <path d="M156 36c10-8 18-2 22 6-10 4-18 2-22-6z" fill="#c4653f"/>
+    </svg>
+  </div>
+  <div class="url">cake-genius.onrender.com</div>
+  <div class="brand">🎂 Cake Genius <span>· حلويات مصممة بالطلب</span></div>
+</body>
+</html>

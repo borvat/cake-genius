@@ -14,9 +14,10 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import {
-  openDb, getProduct, listProducts, createOrder, getOrder, listOrders, setOrderStatus,
-  listCustomers, revenueSummary, ensureAdmin, verifyAdmin, createSession, getSession,
-  destroySession, purgeExpiredSessions, updateProduct, dbPath,
+  openDb, getProduct, getProductForAdmin, listProducts, createProduct, updateProduct,
+  createOrder, getOrder, listOrders, setOrderStatus, listCustomers, revenueSummary,
+  ensureAdmin, verifyAdmin, createSession, getSession, destroySession, purgeExpiredSessions,
+  dbPath, dbInfo, getSettings, setSettings, listAvailability, adminDay, outboxForOrder,
 } from './lib/db.js';
 import { quote, publicRules, PricingError, CURRENCY } from './lib/pricing.js';
 import { parse, suggest, buildReply } from './lib/assistant.js';
@@ -24,9 +25,12 @@ import {
   design, aiAvailable, aiModel, aiUsage, aiGuardConfig,
   checkAiRateLimit, acquireAiSlot, releaseAiSlot,
 } from './lib/ai-assistant.js';
+import { renderOrderMessages, channelStatus, whatsappLink } from './lib/notify.js';
+import { csvBuffer } from './lib/csv.js';
 import { CATEGORIES, ORDER_STATUSES } from './lib/catalog.js';
 import { parseTrustedProxies, resolveClientIp } from './lib/client-ip.js';
 import { lineTotals, isValidQty } from './public/lib/cart-math.js';
+import { shopDate } from './lib/capacity.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -38,12 +42,18 @@ const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.RENDER;
 const COMMIT = process.env.RENDER_GIT_COMMIT || process.env.APP_COMMIT || 'dev';
 const VERSION = process.env.APP_VERSION || JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
 
-openDb();
-const adminInfo = ensureAdmin();
-if (!process.env.ADMIN_PASSWORD && IS_PROD) {
+const HAS_DATABASE_URL = !!process.env.DATABASE_URL;
+const READ_ONLY = process.env.READ_ONLY === '1';
+
+await openDb();
+const adminInfo = READ_ONLY
+  ? { created: false, username: process.env.ADMIN_USER || 'admin' }
+  : await ensureAdmin();
+if (!process.env.ADMIN_PASSWORD && IS_PROD && !READ_ONLY) {
   console.warn('[security] ADMIN_PASSWORD is not set while running in production: the documented development default is in use. Set a deployment-specific secret.');
 }
-purgeExpiredSessions();
+await purgeExpiredSessions();
+const STORE = dbInfo();
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -66,7 +76,7 @@ const SECURITY_HEADERS = {
   'Permissions-Policy': 'geolocation=(), camera=(), microphone=()',
   'Content-Security-Policy': [
     "default-src 'self'",
-    "img-src 'self' data:",
+    "img-src 'self' data: https:",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self'",
     "connect-src 'self'",
@@ -97,6 +107,82 @@ function sendText(res, status, text, headers = {}) {
     ...headers,
   });
   res.end(payload);
+}
+
+function sendAttachment(res, buffer, filename, contentType) {
+  res.writeHead(200, {
+    ...SECURITY_HEADERS,
+    'Content-Type': contentType,
+    'Content-Length': buffer.length,
+    'Content-Disposition': `attachment; filename="${filename}"`,
+    'Cache-Control': 'no-store',
+  });
+  res.end(buffer);
+}
+
+const CATEGORY_IDS = CATEGORIES.filter((c) => c.id !== 'all').map((c) => c.id);
+
+/**
+ * Validate a product create/update. Returns { value } or { error }.
+ * Image is either a local /img/ path or an absolute https URL: a product can
+ * never point at javascript:, data: or a protocol-relative host.
+ */
+function parseProductInput(body = {}, { partial = false } = {}) {
+  const out = {};
+  const fail = (m) => ({ error: m });
+  const text = (v, min, max) => {
+    const s = String(v ?? '').trim();
+    if (s.length < min || s.length > max) return null;
+    if (/[<>]/.test(s)) return null;
+    return s;
+  };
+
+  if (!partial || body.slug !== undefined) {
+    const slug = String(body.slug ?? '').trim().toLowerCase();
+    if (!/^[a-z0-9-]{3,40}$/.test(slug)) return fail('slug must be 3-40 characters: a-z, 0-9 or -');
+    out.slug = slug;
+  }
+  const fields = [
+    ['nameAr', 2, 80], ['nameEn', 2, 80], ['descAr', 2, 400], ['descEn', 2, 400],
+  ];
+  for (const [key, min, max] of fields) {
+    if (partial && body[key] === undefined) continue;
+    const v = text(body[key], min, max);
+    if (!v) return fail(`${key} must be ${min}-${max} characters without < or >`);
+    out[key] = v;
+  }
+  if (!partial || body.category !== undefined) {
+    if (!CATEGORY_IDS.includes(body.category)) return fail(`category must be one of: ${CATEGORY_IDS.join(', ')}`);
+    out.category = body.category;
+  }
+  if (!partial || body.basePrice !== undefined) {
+    const v = Number(body.basePrice);
+    if (!Number.isFinite(v) || v < 20 || v > 5000) return fail('basePrice must be between 20 and 5000');
+    out.basePrice = Math.round(v);
+  }
+  if (body.image !== undefined) {
+    const img = String(body.image).trim();
+    if (!(/^\/img\/[A-Za-z0-9._/-]+$/.test(img) || /^https:\/\/[^\s"'<>]+$/.test(img))) {
+      return fail('image must be a /img/... path or an https:// URL');
+    }
+    out.image = img;
+  } else if (!partial) {
+    out.image = '/img/celebrate.svg';
+  }
+  if (body.tags !== undefined) {
+    if (!Array.isArray(body.tags) || body.tags.length > 8) return fail('tags must be an array of at most 8 strings');
+    const tags = body.tags.map((t) => String(t).trim()).filter(Boolean);
+    if (tags.some((t) => t.length > 20 || /[<>,]/.test(t))) return fail('each tag must be 1-20 characters without < > ,');
+    out.tags = tags;
+  }
+  for (const key of ['popular', 'active']) {
+    if (body[key] !== undefined) out[key] = !!body[key];
+  }
+  if (!partial) {
+    if (out.tags === undefined) out.tags = [];
+    if (out.active === undefined) out.active = true;
+  }
+  return { value: out };
 }
 
 function parseCookies(req) {
@@ -210,9 +296,9 @@ function clientIp(req) {
 
 /* ---------------- auth guard ---------------- */
 
-function requireAdmin(req, res) {
+async function requireAdmin(req, res) {
   const token = parseCookies(req).cg_session;
-  const session = getSession(token);
+  const session = await getSession(token);
   if (!session) {
     send(res, 401, { error: 'UNAUTHORIZED', message: 'Authentication required' });
     return null;
@@ -221,6 +307,131 @@ function requireAdmin(req, res) {
 }
 
 /* ---------------- static ---------------- */
+
+function escAttr(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/**
+ * Social + search metadata, generated from live catalog and settings instead of
+ * being hardcoded: prices an admin changes appear in JSON-LD immediately.
+ */
+function buildSeo({ base, settings, products }) {
+  const shopName = settings.shop.nameAr || settings.shop.name;
+  const title = `${shopName} | كيك مخصص بتسعير لحظي`;
+  const description = 'كيك مخصص يُصنع على مقاسك: اختر الحجم والنكهة والحشوة والتصميم، شاهد السعر قبل الطلب، واختر موعد التسليم.';
+  const image = `${base}/img/og-image.png`;
+  const ld = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Bakery',
+        '@id': `${base}/#bakery`,
+        name: settings.shop.name,
+        alternateName: settings.shop.nameAr,
+        url: `${base}/`,
+        image,
+        ...(settings.shop.phone ? { telephone: settings.shop.phone } : {}),
+        priceRange: 'SAR 145-1200',
+        servesCuisine: 'Cake',
+        currenciesAccepted: 'SAR',
+        paymentAccepted: 'Cash, Card',
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: settings.shop.city || 'الرياض',
+          addressCountry: 'SA',
+        },
+      },
+      {
+        '@type': 'ItemList',
+        name: 'Cake menu',
+        itemListElement: products.slice(0, 12).map((p, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          item: {
+            '@type': 'Product',
+            name: p.name.ar,
+            alternateName: p.name.en,
+            image: p.image.startsWith('http') ? p.image : `${base}${p.image}`,
+            description: p.desc.ar,
+            offers: {
+              '@type': 'Offer',
+              price: p.basePrice,
+              priceCurrency: 'SAR',
+              availability: 'https://schema.org/InStock',
+              url: `${base}/`,
+            },
+          },
+        })),
+      },
+    ],
+  };
+  const tags = [
+    `<link rel="canonical" href="${escAttr(base)}/" />`,
+    '<meta property="og:type" content="website" />',
+    `<meta property="og:site_name" content="${escAttr(settings.shop.name)}" />`,
+    `<meta property="og:title" content="${escAttr(title)}" />`,
+    `<meta property="og:description" content="${escAttr(description)}" />`,
+    `<meta property="og:image" content="${escAttr(image)}" />`,
+    '<meta property="og:image:width" content="1200" />',
+    '<meta property="og:image:height" content="630" />',
+    `<meta property="og:url" content="${escAttr(base)}/" />`,
+    '<meta property="og:locale" content="ar_SA" />',
+    '<meta property="og:locale:alternate" content="en_US" />',
+    '<meta name="twitter:card" content="summary_large_image" />',
+    `<meta name="twitter:title" content="${escAttr(title)}" />`,
+    `<meta name="twitter:description" content="${escAttr(description)}" />`,
+    `<meta name="twitter:image" content="${escAttr(image)}" />`,
+    `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>`,
+  ].join('\n  ');
+  return { tags, canonical: `${base}/`, image };
+}
+
+function baseUrl(req) {
+  const host = req.headers.host || 'localhost';
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+  return (process.env.PUBLIC_URL || `${proto}://${host}`).replace(/\/+$/, '');
+}
+
+async function serveIndex(req, res) {
+  const html = await fs.promises.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+  const base = baseUrl(req);
+  const [settings, products] = await Promise.all([getSettings(), listProducts({})]);
+  const { tags } = buildSeo({ base, settings, products });
+  const body = Buffer.from(html.replace('<!--SEO-->', tags), 'utf8');
+  res.writeHead(200, {
+    ...SECURITY_HEADERS,
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Length': body.length,
+    'Cache-Control': 'no-cache',
+  });
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+
+function sendXml(res, status, xml) {
+  const payload = Buffer.from(xml, 'utf8');
+  res.writeHead(status, {
+    ...SECURITY_HEADERS,
+    'Content-Type': 'application/xml; charset=utf-8',
+    'Content-Length': payload.length,
+    'Cache-Control': 'public, max-age=600',
+  });
+  res.end(payload);
+}
+
+async function serveSitemap(req, res) {
+  const base = baseUrl(req);
+  const products = await listProducts({});
+  const urls = [
+    { loc: `${base}/`, priority: '1.0' },
+    ...products.map((p) => ({ loc: `${base}/?cake=${encodeURIComponent(p.slug)}`, priority: '0.7' })),
+  ];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map((u) => `  <url><loc>${u.loc.replace(/&/g, '&amp;')}</loc><changefreq>weekly</changefreq><priority>${u.priority}</priority></url>`).join('\n')}
+</urlset>`;
+  return sendXml(res, 200, xml);
+}
 
 function serveStatic(req, res, urlPath) {
   let rel;
@@ -276,9 +487,9 @@ function serveStatic(req, res, urlPath) {
 
 /* ---------------- API ---------------- */
 
-function aiFallbackPayload(message, lang) {
+async function aiFallbackPayload(message, lang) {
   const constraints = parse(message).constraints;
-  const result = suggest(listProducts({}), constraints, 3);
+  const result = suggest(await listProducts({}), constraints, 3);
   const reply = buildReply(result.suggestions, constraints, lang || 'ar');
   return {
     reply, understood: constraints, suggestions: result.suggestions,
@@ -299,19 +510,29 @@ async function handleApi(req, res, url) {
       version: VERSION,
       commit: COMMIT.slice(0, 40),
       uptimeSeconds: Math.round(process.uptime()),
-      ordersStored: listOrders({ limit: 1000 }).length,
-      db: path.basename(dbPath()),
+      ordersStored: (await listOrders({ limit: 1000 })).length,
+      db: STORE.driver === 'postgres' ? STORE.target : path.basename(dbPath()),
+      storage: { driver: STORE.driver, readOnly: STORE.readOnly, persistent: STORE.persistent },
       ai: { available: aiAvailable(), model: aiModel(), requests: aiUsage().requests, totalTokens: aiUsage().totalTokens },
       startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(),
     });
   }
 
   if (p === '/api/config' && method === 'GET') {
+    const settings = await getSettings();
     return send(res, 200, {
       currency: CURRENCY,
       rules: publicRules(),
       categories: CATEGORIES,
       statuses: ORDER_STATUSES,
+      shop: settings.shop,
+      capacity: {
+        daily: settings.capacity.daily,
+        perWindow: settings.capacity.perWindow,
+        leadHours: settings.capacity.leadHours,
+        maxDays: settings.capacity.maxDays,
+        windows: settings.capacity.windowList.map((w) => ({ id: w.id, start: w.start, end: w.end, label: w.label })),
+      },
       assistant: {
         ...(aiAvailable()
           ? { engine: `llm-${aiModel()}`, externalProvider: true, model: aiModel(), available: true }
@@ -321,21 +542,30 @@ async function handleApi(req, res, url) {
     });
   }
 
+  if (p === '/api/slots' && method === 'GET') {
+    const days = Math.max(1, Math.min(60, Number(url.searchParams.get('days')) || 14));
+    const startDate = url.searchParams.get('from') || null;
+    if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      return send(res, 400, { error: 'BAD_DATE', message: 'from must be YYYY-MM-DD' });
+    }
+    return send(res, 200, { days: await listAvailability({ days, startDate }) });
+  }
+
   if (p === '/api/products' && method === 'GET') {
     const category = url.searchParams.get('category') || 'all';
-    return send(res, 200, { products: listProducts({ category }), categories: CATEGORIES });
+    return send(res, 200, { products: await listProducts({ category }), categories: CATEGORIES });
   }
 
   if (p.startsWith('/api/products/') && method === 'GET') {
     const id = p.split('/')[3];
-    const product = getProduct(id);
+    const product = await getProduct(id);
     if (!product) return send(res, 404, { error: 'NOT_FOUND', message: 'Product not found' });
     return send(res, 200, { product });
   }
 
   if (p === '/api/quote' && method === 'POST') {
     const body = await readJsonBody(req);
-    const product = getProduct(body.productId);
+    const product = await getProduct(body.productId);
     if (!product) return send(res, 404, { error: 'PRODUCT_NOT_FOUND', message: 'Unknown product' });
     try {
       const deliveryAt = validDeliveryAt(body.config?.deliveryAt);
@@ -354,7 +584,7 @@ async function handleApi(req, res, url) {
     const message = String(body.message || '').slice(0, 500).trim();
     if (message.length < 2) return send(res, 400, { error: 'EMPTY_MESSAGE', message: 'Please describe what you need' });
     const constraints = parse(message).constraints;
-    const result = suggest(listProducts({}), constraints, 3);
+    const result = suggest(await listProducts({}), constraints, 3);
     const reply = buildReply(result.suggestions, constraints, body.lang || 'ar');
     return send(res, 200, {
       reply,
@@ -397,7 +627,7 @@ async function handleApi(req, res, url) {
     } catch (err) {
       console.error('[ai]', err.message);
       // Model failure -> degrade to the rule-based assistant, never a 500 to the customer.
-      return send(res, 200, aiFallbackPayload(message, body.lang));
+      return send(res, 200, await aiFallbackPayload(message, body.lang));
     } finally {
       releaseAiSlot();
     }
@@ -423,7 +653,7 @@ async function handleApi(req, res, url) {
     let cakesSubtotal = 0;
 
     for (const line of cart) {
-      const product = getProduct(line.productId);
+      const product = await getProduct(line.productId);
       if (!product) return send(res, 400, { error: 'PRODUCT_NOT_FOUND', message: `Unknown product ${line.productId}` });
       // Quantity is validated, never trusted: only a true integer 1..20 is accepted.
       if (!isValidQty(line.quantity === undefined ? 1 : line.quantity)) {
@@ -441,7 +671,7 @@ async function handleApi(req, res, url) {
       const lt = lineTotals(q.cakeSubtotal + q.rushFee, q.deliveryFee, quantity);
       rushFee += q.rushFee * lt.quantity;
       deliveryFee += lt.delivery;
-      cakesSubtotal += lt.cakes;
+      cakesSubtotal += q.cakeSubtotal * lt.quantity;
       priced.push({
         productId: product.id,
         name: product.name,
@@ -453,20 +683,37 @@ async function handleApi(req, res, url) {
       });
     }
 
+    // Stored money columns are disjoint: subtotal (cakes) + rush + delivery = total.
     const subtotal = cakesSubtotal;
-    const total = subtotal + deliveryFee;
+    const total = subtotal + rushFee + deliveryFee;
     if (total <= 0) return send(res, 400, { error: 'BAD_TOTAL', message: 'Invalid order total' });
 
-    const order = createOrder({
-      customer: { name, phone, email: email || null },
-      items: priced,
-      totals: { currency: CURRENCY, rushFee, deliveryFee, total },
-      status: 'pending',
-      paymentMethod: 'demo',
-      deliveryAt,
-      notes: String(body.notes || '').slice(0, 400),
-    });
-    return send(res, 201, { order });
+    try {
+      const order = await createOrder({
+        customer: { name, phone, email: email || null },
+        items: priced,
+        totals: { currency: CURRENCY, subtotal, rushFee, deliveryFee, total },
+        status: 'pending',
+        paymentMethod: 'demo',
+        deliveryAt,
+        notes: String(body.notes || '').slice(0, 400),
+      });
+      return send(res, 201, { order });
+    } catch (err) {
+      if (err.code === 'DAY_FULL' || err.code === 'SLOT_FULL') {
+        return send(res, 409, { error: err.code, message: err.message });
+      }
+      if (err.status === 400) {
+        return send(res, 400, { error: err.code || 'BAD_REQUEST', message: err.message });
+      }
+      // Any storage failure lands here. The customer gets a refusal, never a
+      // confirmation: nothing was committed, so nothing may look accepted.
+      console.error('[orders] persistence failure:', err);
+      return send(res, 503, {
+        error: 'PERSISTENCE_FAILED',
+        message: 'We could not save your order, so it was not accepted. Nothing was recorded or charged. Please try again.',
+      });
+    }
   }
 
   if (p === '/api/orders/lookup' && method === 'POST') {
@@ -474,7 +721,7 @@ async function handleApi(req, res, url) {
     const phone = validPhone(body.phone);
     const code = String(body.code || '').trim().toUpperCase();
     if (!phone || !code) return send(res, 400, { error: 'BAD_LOOKUP', message: 'Code and phone are required' });
-    const order = getOrder(code);
+    const order = await getOrder(code);
     if (!order || order.customer.phone !== phone) {
       return send(res, 404, { error: 'NOT_FOUND', message: 'No order matches that code and phone' });
     }
@@ -489,94 +736,176 @@ async function handleApi(req, res, url) {
       return send(res, 429, { error: 'RATE_LIMITED', message: 'Too many attempts. Try again in 10 minutes.' });
     }
     const body = await readJsonBody(req);
-    const user = verifyAdmin(String(body.username || ''), String(body.password || ''));
+    const user = await verifyAdmin(String(body.username || ''), String(body.password || ''));
     if (!user) {
       noteLoginFailure(ip);
       return send(res, 401, { error: 'INVALID_CREDENTIALS', message: 'Wrong username or password' });
     }
     clearLoginFailures(ip);
-    const session = createSession(user.id);
+    const session = await createSession(user.id);
     const secure = (req.headers['x-forwarded-proto'] || '').includes('https');
     res.setHeader('Set-Cookie', `cg_session=${session.token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 3600}${secure ? '; Secure' : ''}`);
     return send(res, 200, { ok: true, user: { username: user.username }, expiresAt: session.expiresAt });
   }
 
   if (p === '/api/admin/logout' && method === 'POST') {
-    destroySession(parseCookies(req).cg_session);
+    await destroySession(parseCookies(req).cg_session);
     res.setHeader('Set-Cookie', 'cg_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
     return send(res, 200, { ok: true });
   }
 
   if (p === '/api/admin/me' && method === 'GET') {
-    const session = requireAdmin(req, res);
+    const session = await requireAdmin(req, res);
     if (!session) return;
     return send(res, 200, { user: { username: session.username }, expiresAt: session.expiresAt });
   }
 
   if (p === '/api/admin/ai-usage' && method === 'GET') {
-    const session = requireAdmin(req, res);
+    const session = await requireAdmin(req, res);
     if (!session) return;
     return send(res, 200, { available: aiAvailable(), model: aiModel(), usage: aiUsage() });
   }
 
   if (p === '/api/admin/stats' && method === 'GET') {
-    const session = requireAdmin(req, res);
+    const session = await requireAdmin(req, res);
     if (!session) return;
-    return send(res, 200, { stats: revenueSummary(), statuses: ORDER_STATUSES });
+    return send(res, 200, { stats: await revenueSummary(), statuses: ORDER_STATUSES });
   }
 
   if (p === '/api/admin/orders' && method === 'GET') {
-    const session = requireAdmin(req, res);
+    const session = await requireAdmin(req, res);
     if (!session) return;
     const status = url.searchParams.get('status') || 'all';
     if (status !== 'all' && !ORDER_STATUSES.includes(status)) {
       return send(res, 400, { error: 'BAD_STATUS', message: 'Unknown status filter' });
     }
-    return send(res, 200, { orders: listOrders({ status }) });
+    return send(res, 200, { orders: await listOrders({ status }) });
+  }
+
+  if (p === '/api/admin/orders.csv' && method === 'GET') {
+    const session = await requireAdmin(req, res);
+    if (!session) return;
+    const status = url.searchParams.get('status') || 'all';
+    const from = url.searchParams.get('from') || null;
+    const to = url.searchParams.get('to') || null;
+    const orders = await listOrders({ status, from, to, limit: 1000 });
+    const buffer = csvBuffer([
+      { label: 'code', value: (o) => o.code },
+      { label: 'created_at', value: (o) => o.createdAt },
+      { label: 'delivery_at', value: (o) => o.deliveryAt || '' },
+      { label: 'slot_date', value: (o) => o.slot?.date || '' },
+      { label: 'slot_window', value: (o) => o.slot?.window || '' },
+      { label: 'status', value: (o) => o.status },
+      { label: 'customer_name', value: (o) => o.customer.name },
+      { label: 'customer_phone', value: (o) => o.customer.phone },
+      { label: 'customer_email', value: (o) => o.customer.email || '' },
+      { label: 'items', value: (o) => o.items.map((i) => `${i.name.ar} x${i.quantity}`).join(' | ') },
+      { label: 'subtotal', value: (o) => o.subtotal },
+      { label: 'rush_fee', value: (o) => o.rushFee },
+      { label: 'delivery_fee', value: (o) => o.deliveryFee },
+      { label: 'total', value: (o) => o.total },
+      { label: 'currency', value: (o) => o.currency },
+    ], orders);
+    return sendAttachment(res, buffer, `cake-genius-orders-${shopDate(new Date())}.csv`, 'text/csv; charset=utf-8');
   }
 
   if (p.startsWith('/api/admin/orders/') && method === 'PATCH') {
-    const session = requireAdmin(req, res);
+    const session = await requireAdmin(req, res);
     if (!session) return;
     const id = p.split('/')[4];
     const body = await readJsonBody(req);
     if (!ORDER_STATUSES.includes(body.status)) {
       return send(res, 400, { error: 'BAD_STATUS', message: 'Unknown status' });
     }
-    const order = setOrderStatus(id, body.status, session.username);
+    const order = await setOrderStatus(id, body.status, session.username);
     if (!order) return send(res, 404, { error: 'NOT_FOUND', message: 'Order not found' });
     return send(res, 200, { order });
   }
 
-  if (p === '/api/admin/customers' && method === 'GET') {
-    const session = requireAdmin(req, res);
+  /** Render the WhatsApp messages for an order. Never sends: preview only. */
+  if (/^\/api\/admin\/orders\/[^/]+\/notify-preview$/.test(p) && method === 'POST') {
+    const session = await requireAdmin(req, res);
     if (!session) return;
-    return send(res, 200, { customers: listCustomers() });
+    const id = p.split('/')[4];
+    const order = await getOrder(id);
+    if (!order) return send(res, 404, { error: 'NOT_FOUND', message: 'Order not found' });
+    const settings = await getSettings();
+    const messages = renderOrderMessages(order, settings);
+    return send(res, 200, {
+      order: { id: order.id, code: order.code },
+      channel: channelStatus(),
+      messages,
+      links: {
+        customer: messages.customer?.to ? whatsappLink(messages.customer.to, messages.customer.body) : null,
+        owner: messages.owner?.to ? whatsappLink(messages.owner.to, messages.owner.body) : null,
+      },
+    });
+  }
+
+  if (p === '/api/admin/customers' && method === 'GET') {
+    const session = await requireAdmin(req, res);
+    if (!session) return;
+    return send(res, 200, { customers: await listCustomers() });
   }
 
   if (p === '/api/admin/products' && method === 'GET') {
-    const session = requireAdmin(req, res);
+    const session = await requireAdmin(req, res);
     if (!session) return;
-    return send(res, 200, { products: listProducts({}) });
+    return send(res, 200, { products: await listProducts({ includeInactive: true }) });
+  }
+
+  if (p === '/api/admin/products' && method === 'POST') {
+    const session = await requireAdmin(req, res);
+    if (!session) return;
+    const body = await readJsonBody(req);
+    const parsed = parseProductInput(body, { partial: false });
+    if (parsed.error) return send(res, 400, { error: 'BAD_PRODUCT', message: parsed.error });
+    const product = await createProduct(parsed.value);
+    return send(res, 201, { product });
   }
 
   if (p.startsWith('/api/admin/products/') && method === 'PATCH') {
-    const session = requireAdmin(req, res);
+    const session = await requireAdmin(req, res);
     if (!session) return;
     const id = p.split('/')[4];
     const body = await readJsonBody(req);
-    const patch = {};
-    if (body.basePrice !== undefined) {
-      const v = Number(body.basePrice);
-      if (!Number.isFinite(v) || v < 20 || v > 5000) {
-        return send(res, 400, { error: 'BAD_PRICE', message: 'Base price must be between 20 and 5000' });
-      }
-      patch.basePrice = Math.round(v);
-    }
-    if (body.active !== undefined) patch.active = !!body.active;
-    if (!getProduct(id)) return send(res, 404, { error: 'NOT_FOUND', message: 'Product not found' });
-    const product = updateProduct(id, patch);
+    const parsed = parseProductInput(body, { partial: true });
+    if (parsed.error) return send(res, 400, { error: 'BAD_PRODUCT', message: parsed.error });
+    if (!(await getProductForAdmin(id))) return send(res, 404, { error: 'NOT_FOUND', message: 'Product not found' });
+    const product = await updateProduct(id, parsed.value);
     return send(res, 200, { product });
+  }
+
+  if (p === '/api/admin/settings' && method === 'GET') {
+    const session = await requireAdmin(req, res);
+    if (!session) return;
+    const settings = await getSettings();
+    return send(res, 200, { settings: { ...settings.raw, notify: channelStatus() } });
+  }
+
+  if (p === '/api/admin/settings' && method === 'PATCH') {
+    const session = await requireAdmin(req, res);
+    if (!session) return;
+    const body = await readJsonBody(req);
+    const settings = await setSettings(body);
+    return send(res, 200, { settings: settings.raw });
+  }
+
+  if (p === '/api/admin/slots' && method === 'GET') {
+    const session = await requireAdmin(req, res);
+    if (!session) return;
+    const days = Math.max(1, Math.min(60, Number(url.searchParams.get('days')) || 14));
+    return send(res, 200, { days: await listAvailability({ days }) });
+  }
+
+  if (p === '/api/admin/day' && method === 'GET') {
+    const session = await requireAdmin(req, res);
+    if (!session) return;
+    const date = url.searchParams.get('date') || shopDate(new Date());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return send(res, 400, { error: 'BAD_DATE', message: 'date must be YYYY-MM-DD' });
+    }
+    return send(res, 200, await adminDay(date));
   }
 
   return send(res, 404, { error: 'NOT_FOUND', message: 'Unknown endpoint' });
@@ -591,6 +920,16 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       return sendText(res, 405, 'Method not allowed');
+    }
+    if (url.pathname === '/robots.txt') {
+      const base = baseUrl(req);
+      return sendText(res, 200, `User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: ${base}/sitemap.xml\n`);
+    }
+    if (url.pathname === '/sitemap.xml') {
+      return await serveSitemap(req, res);
+    }
+    if (url.pathname === '/' || url.pathname === '/index.html') {
+      return await serveIndex(req, res);
     }
     serveStatic(req, res, url.pathname);
   } catch (err) {
@@ -607,11 +946,11 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, async () => {
   console.log(`Cake Genius listening on http://${HOST}:${PORT}`);
   console.log(`build: v${VERSION} @ ${COMMIT}`);
   console.log(`DB: ${dbPath()}  admin user: ${adminInfo.username} (${adminInfo.created ? 'created' : 'synced'})`);
-  console.log(`orders on disk at startup: ${listOrders({ limit: 1000 }).length}`);
+  console.log(`orders on disk at startup: ${(await listOrders({ limit: 1000 })).length}`);
 });
 
 const shutdown = (sig) => {

@@ -6,7 +6,7 @@
   <title>Cake Genius — Admin</title>
   <meta name="robots" content="noindex" />
   <link rel="icon" href="/img/celebrate.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css?v=1.2.0" />
 </head>
 <body class="admin-shell">
   <div id="loginView" class="admin-login">
@@ -72,6 +72,48 @@
         </div>
       </section>
 
+      <section class="panel" id="dayPanel">
+        <div class="panel-head">
+          <h2>لوحة اليوم</h2>
+          <input type="date" id="dayDate" aria-label="تاريخ لوحة اليوم" />
+          <span class="mono" id="daySummary" style="color:var(--ink-soft)"></span>
+          <div class="spacer"></div>
+          <a class="btn btn-sm btn-ghost" href="/api/admin/orders.csv" download>تصدير CSV</a>
+        </div>
+        <div class="panel-body">
+          <div class="slot-row" id="daySlots"></div>
+          <div class="admin-table-wrap">
+            <table>
+              <thead><tr><th>الوقت</th><th>الطلب</th><th>العميل</th><th>العناصر</th><th>الحالة</th><th>الإجمالي</th><th>واتساب</th></tr></thead>
+              <tbody id="dayBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="settingsPanel">
+        <div class="panel-head">
+          <h2>السعة والتسليم والإشعارات</h2>
+          <span class="mono" style="color:var(--ink-soft)">تُطبَّق فوراً على الطلبات الجديدة</span>
+        </div>
+        <div class="panel-body settings-grid">
+          <div class="field"><label for="setDaily">سعة اليوم (كيك)</label><input id="setDaily" type="number" min="1" max="500" /></div>
+          <div class="field"><label for="setPerWindow">سعة الفترة (كيك)</label><input id="setPerWindow" type="number" min="1" max="500" /></div>
+          <div class="field"><label for="setLead">أقل مهلة (ساعات)</label><input id="setLead" type="number" min="0" max="720" /></div>
+          <div class="field"><label for="setWindows">فترات التسليم</label><input id="setWindows" class="ltr-input" type="text" placeholder="11:00-14:00,16:00-19:00" /></div>
+          <div class="field"><label for="setClosed">أيام الإغلاق (0-6)</label><input id="setClosed" type="text" placeholder="5" /></div>
+          <div class="field"><label for="setPhone">هاتف المتجر</label><input id="setPhone" class="ltr-input" type="tel" placeholder="+9665..." /></div>
+          <div class="field"><label for="setOwner">واتساب المالك</label><input id="setOwner" class="ltr-input" type="tel" placeholder="+9665..." /></div>
+          <div class="field"><label for="setUrl">رابط المتجر</label><input id="setUrl" class="ltr-input" type="url" placeholder="https://..." /></div>
+          <div class="field" style="align-self:end">
+            <button class="btn btn-accent" id="saveSettings" type="button">حفظ الإعدادات</button>
+          </div>
+          <div class="alert alert-ok" id="settingsOk" role="status"></div>
+          <div class="alert alert-error" id="settingsErr" role="alert"></div>
+          <p class="hint" id="waStatus" style="grid-column:1/-1"></p>
+        </div>
+      </section>
+
       <section class="panel">
         <div class="panel-head"><h2>العملاء</h2></div>
         <div class="admin-table-wrap">
@@ -83,10 +125,13 @@
       </section>
 
       <section class="panel">
-        <div class="panel-head"><h2>المنتجات والأسعار</h2><span class="mono" style="color:var(--ink-soft)">تعديل سعر القاعدة يغيّر كل الخيارات المشتقة فوراً</span></div>
+        <div class="panel-head"><h2>المنتجات والأسعار</h2><span class="mono" style="color:var(--ink-soft)">تعديل سعر القاعدة يغيّر كل الخيارات المشتقة فوراً</span>
+          <div class="spacer"></div>
+          <button class="btn btn-sm btn-ghost" id="newProductBtn" type="button">منتج جديد</button>
+        </div>
         <div class="admin-table-wrap">
           <table>
-            <thead><tr><th>المنتج</th><th>الفئة</th><th>سعر القاعدة</th><th>حفظ</th></tr></thead>
+            <thead><tr><th>المنتج</th><th>الفئة</th><th>سعر القاعدة</th><th>مفعّل</th><th>حفظ</th></tr></thead>
             <tbody id="productsBody"></tbody>
           </table>
         </div>
@@ -104,7 +149,42 @@
     </div>
   </div>
 
+  <div class="modal" id="productModal" role="dialog" aria-modal="true" aria-labelledby="productModalTitle">
+    <div class="modal-card wide">
+      <button class="btn btn-sm btn-ghost modal-close" id="productModalClose" type="button">إغلاق</button>
+      <h2 id="productModalTitle">منتج جديد</h2>
+      <form id="productForm" autocomplete="off">
+        <div class="settings-grid">
+          <div class="field"><label for="pSlug">المعرّف (slug)</label><input id="pSlug" class="ltr-input" type="text" required pattern="(?:[a-z0-9]|-){3,40}" /></div>
+          <div class="field"><label for="pCategory">الفئة</label><input id="pCategory" type="text" required placeholder="classic" /></div>
+          <div class="field"><label for="pNameAr">الاسم (عربي)</label><input id="pNameAr" type="text" required /></div>
+          <div class="field"><label for="pNameEn">الاسم (إنجليزي)</label><input id="pNameEn" type="text" required /></div>
+          <div class="field"><label for="pPrice">سعر القاعدة</label><input id="pPrice" type="number" min="20" max="5000" required /></div>
+          <div class="field"><label for="pImage">الصورة</label><input id="pImage" class="ltr-input" type="text" placeholder="/img/celebrate.svg" /></div>
+          <div class="field" style="grid-column:1/-1"><label for="pDescAr">الوصف (عربي)</label><input id="pDescAr" type="text" required /></div>
+          <div class="field" style="grid-column:1/-1"><label for="pDescEn">الوصف (إنجليزي)</label><input id="pDescEn" type="text" required /></div>
+        </div>
+        <div class="alert alert-error" id="productErr" role="alert"></div>
+        <button class="btn btn-accent" type="submit">إنشاء المنتج</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="notifyModal" role="dialog" aria-modal="true" aria-labelledby="notifyTitle">
+    <div class="modal-card wide">
+      <button class="btn btn-sm btn-ghost modal-close" id="notifyClose" type="button">إغلاق</button>
+      <h2 id="notifyTitle">معاينة رسالة واتساب</h2>
+      <p class="hint" id="notifyChannel"></p>
+      <pre class="msg-preview" id="notifyBody"></pre>
+      <div class="notify-actions">
+        <a class="btn btn-sm btn-accent" id="notifyLink" href="#" target="_blank" rel="noopener">فتح في واتساب</a>
+        <span class="hint">لا يُرسل شيء تلقائياً. هذا النص مُعدّ فقط، والإرسال يدوي عبر الرابط.</span>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" role="status" aria-live="polite"></div>
-  <script src="/admin.js" type="module"></script>
+  <script src="/admin.js?v=1.2.0" type="module"></script>
+  <script src="/admin-ops.js?v=1.2.0" type="module"></script>
 </body>
 </html>

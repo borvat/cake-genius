@@ -1,8 +1,8 @@
 {
   "name": "cake-genius",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "Cake Genius - bilingual (AR/EN) cake store with dynamic pricing, rule-based smart assistant, checkout and admin dashboard. Zero runtime dependencies.",
+  "description": "Cake Genius - bilingual (AR/EN) cake store: dynamic pricing, AI cake designer, SQLite or PostgreSQL persistence, delivery capacity, admin operations. Node core only unless DATABASE_URL is set (then the optional pg driver is used).",
   "type": "module",
   "main": "server.js",
   "engines": {
@@ -10,11 +10,18 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/cart-math.test.mjs && node tests/ai-guard.test.mjs && node tests/acceptance.mjs",
-    "test:unit": "node tests/cart-math.test.mjs && node tests/ai-guard.test.mjs && node tests/client-ip.test.mjs",
+    "test": "node tests/cart-math.test.mjs && node tests/capacity.test.mjs && node tests/storage.test.mjs && node tests/migration.test.mjs && node tests/api-1.2.test.mjs && node tests/ai-guard.test.mjs",
+    "test:unit": "node tests/cart-math.test.mjs && node tests/capacity.test.mjs && node tests/ai-guard.test.mjs && node tests/client-ip.test.mjs",
+    "test:storage": "node tests/storage.test.mjs",
     "test:api": "node tests/acceptance.mjs",
+    "test:api:1.2": "node tests/api-1.2.test.mjs",
     "test:ai": "node tests/ai-acceptance.mjs",
     "test:ai-guard": "node tests/ai-guard.test.mjs",
-    "test:ai-fallback": "node tests/ai-fallback.mjs"
+    "test:ai-fallback": "node tests/ai-fallback.mjs",
+    "og": "node tools/make-og.mjs",
+    "test:migration": "node tests/migration.test.mjs"
+  },
+  "optionalDependencies": {
+    "pg": "^8.23.1"
   }
 }

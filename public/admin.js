@@ -63,6 +63,7 @@ async function loadAll() {
     renderCustomers(customers.customers);
     renderProducts(products.products);
     $('#lastSync').textContent = new Date().toLocaleTimeString('ar-SA');
+    window.dispatchEvent(new CustomEvent('cg:admin-ready'));
   } catch (err) {
     if (err.status === 401) return showLogin('انتهت الجلسة. سجّل الدخول مرة أخرى.');
     const box = $('#dashError');
@@ -150,18 +151,21 @@ function renderCustomers(customers) {
 
 function renderProducts(products) {
   $('#productsBody').innerHTML = products.map((p) => `<tr data-product="${esc(p.id)}">
-      <td>${esc(p.name.ar)}<br><span class="mono" style="color:var(--ink-soft)">${esc(p.id)}</span></td>
+      <td>${esc(p.name.ar)}${p.active ? '' : ' <span class="badge cancelled">معطّل</span>'}<br><span class="mono" style="color:var(--ink-soft)">${esc(p.id)}</span></td>
       <td>${esc(p.category)}</td>
       <td><input type="number" min="20" max="5000" step="5" value="${esc(p.basePrice)}" style="max-width:120px" /></td>
+      <td><input type="checkbox" ${p.active ? 'checked' : ''} aria-label="تفعيل ${esc(p.name.ar)}" /></td>
       <td><button class="btn btn-sm btn-ghost" type="button">حفظ</button></td>
     </tr>`).join('');
 
   document.querySelectorAll('[data-product]').forEach((row) => {
     row.querySelector('button').addEventListener('click', async () => {
-      const input = row.querySelector('input');
+      const input = row.querySelector('input[type="number"]');
+      const active = row.querySelector('input[type="checkbox"]').checked;
       try {
-        await api(`/api/admin/products/${row.dataset.product}`, { method: 'PATCH', body: { basePrice: Number(input.value) } });
-        toast('تم تحديث السعر', 'ok');
+        await api(`/api/admin/products/${row.dataset.product}`, { method: 'PATCH', body: { basePrice: Number(input.value), active } });
+        toast('تم تحديث المنتج', 'ok');
+        loadAll();
       } catch (err) {
         toast(err.message, 'error');
       }
@@ -198,6 +202,7 @@ $('#logoutBtn').addEventListener('click', async () => {
 });
 
 $('#refreshBtn').addEventListener('click', loadAll);
+window.cgReload = loadAll; // console/ops module hook: refresh without a full page load
 $('#statusFilter').addEventListener('change', (e) => {
   statusFilter = e.target.value;
   loadAll();
