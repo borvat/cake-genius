@@ -169,3 +169,13 @@ plus an active `429 RATE_LIMITED` with `Retry-After`).
 
 **P1 — Delivery evidence.** This report now reflects reality: branch pushed, PR #1 open,
 not merged, not deployed (verified `mergedAt: null`).
+
+**a11y (stage 3.1).** The two serious axe violations the delivery gate found were fixed:
+`#cartDrawer` now carries `inert` when closed (no focusable hidden content), and accent-on-
+light text plus white-on-accent badges/buttons use `--accent-dark` to meet WCAG AA 4.5:1.
+Gate re-run reports **0 serious/critical, 0 minor/moderate** accessibility violations.
+
+**Gate result (post-fix, HEAD `8ba6a2c`).** `vlab gate --config gate.config.cake-genius.json`:
+stages 1–4, 6, 7.1 PASS; stage 5 N/A (no CI configured). Verdict **BLOCKED** only on
+stage 7 (live serves `100ca3e` — deployment is forbidden) and stage 7.2 (Render free plan
+ephemeral storage — a paid resource is forbidden). Stage 8 owner acceptance pending.
