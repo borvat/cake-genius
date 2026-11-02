@@ -34,6 +34,9 @@ const VERSION = process.env.APP_VERSION || '1.0.0';
 
 openDb();
 const adminInfo = ensureAdmin();
+if (!process.env.ADMIN_PASSWORD && IS_PROD) {
+  console.warn('[security] ADMIN_PASSWORD is not set while running in production: the documented development default is in use. Set a deployment-specific secret.');
+}
 purgeExpiredSessions();
 
 const MIME = {
