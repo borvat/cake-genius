@@ -131,9 +131,11 @@ cache hit/miss split.
 - **Model latency/cost:** `deepseek-v4-pro` is a reasoning model; per-request latency is
   several seconds. A cheaper `deepseek-flash` fallback could be wired for high-traffic use.
 - **Prompt-cache cost is an estimate** (upper bound reported; exact split not aggregated).
-- **Rate limiting** keys on the trusted client IP: `socket.remoteAddress` outside a proxy,
-  and the rightmost `X-Forwarded-For` hop behind a trusted proxy (`IS_PROD` or
-  `TRUSTED_PROXIES`). Left-side header spoofing cannot shift the bucket.
+- **Rate limiting** keys on the trusted client IP: `socket.remoteAddress` unless the direct
+  peer is in `TRUSTED_PROXIES`, in which case the XFF chain is walked right-to-left.
+- **Per-process scope:** the rate limiter and concurrency semaphore are in-memory state of
+  a single Node process. They bound abuse per instance, not a global financial cap across
+  multiple instances — a shared budget needs an external gateway (not in scope).
 - **No stock/availability model exists** in the app at all, so the AI cannot (and is
   instructed not to) claim any — consistent with the mandate.
 - Demo checkout (`payment_method: demo`) and Render free-tier data volatility are
@@ -150,13 +152,14 @@ per-request output-token cap (`MAX_OUTPUT_TOKENS` = 8000). Violations return a c
 `429` + `Retry-After`. The limiter keys on the **trusted** client IP (see P1), never on a
 raw `X-Forwarded-For`. Guard config is exposed at `/api/config` (`assistant.guard`).
 
-**P1 — Trust proxy.** `clientIp()` now trusts `X-Forwarded-For` only behind a trusted
-reverse proxy — the production flag (`IS_PROD`) or an explicit `TRUSTED_PROXIES`
-allowlist matched against the direct peer. It takes the **rightmost** hop (appended by the
-trusted proxy), so a client prepending forged hops on the left cannot shift the identity.
-Outside a proxy the peer socket is authoritative. Covered by `tests/ai-fallback.mjs`
-(model-failure fallback, active `429`, and a 7-attempt forged/repeated `X-Forwarded-For`
-login test that still hits `429`).
+**P1 — Trust proxy.** `clientIp()` now trusts `X-Forwarded-For` only when the direct
+peer is an explicitly configured trusted proxy (`TRUSTED_PROXIES`, exact IP or CIDR) —
+`NODE_ENV=production` alone grants **no** trust. It walks the chain right-to-left,
+skipping trusted proxies, so a client prepending forged hops cannot shift the identity and
+a multi-proxy chain resolves correctly (`lib/client-ip.js`, unit-tested in
+`tests/client-ip.test.mjs`). `tests/ai-fallback.mjs` runs the server with
+`NODE_ENV=production` and forged/repeated `X-Forwarded-For` on every request, proving
+neither login (7th attempt → 429) nor AI consumption (3rd request → 429) is bypassable.
 
 **P1 — AI acceptance.** Without an LLM, `tests/ai-acceptance.mjs` now prints
 `SKIPPED (BLOCKED) — AI behaviour UNVERIFIED` and exits 0 (never a false pass). Two new

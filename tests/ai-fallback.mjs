@@ -16,6 +16,10 @@ const env = {
   PORT,
   DB_PATH: DB,
   ADMIN_PASSWORD: 'test-admin-123',
+  // NODE_ENV=production is deliberately set: it proves that production alone does NOT
+  // grant X-Forwarded-For trust (no TRUSTED_PROXIES configured here), so forged headers
+  // cannot bypass login or AI consumption limits.
+  NODE_ENV: 'production',
   DEEPSEEK_API_KEY: 'sk-test-invalid-key',
   DEEPSEEK_BASE_URL: 'http://127.0.0.1:9', // unreachable -> immediate ECONNREFUSED
   AI_RATE_MAX: '2',
@@ -37,8 +41,12 @@ function check(name, cond, detail = '') {
 }
 
 async function post(path, body) {
+  // Every AI request carries a forged X-Forwarded-For to prove it cannot shift the
+  // rate-limit bucket even under NODE_ENV=production (no trusted proxy configured).
   const res = await fetch(`http://127.0.0.1:${PORT}${path}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '198.51.100.99' },
+    body: JSON.stringify(body),
   });
   let data = null; const text = await res.text();
   try { data = JSON.parse(text); } catch { data = text.slice(0, 120); }

@@ -25,6 +25,7 @@ import {
   checkAiRateLimit, acquireAiSlot, releaseAiSlot,
 } from './lib/ai-assistant.js';
 import { CATEGORIES, ORDER_STATUSES } from './lib/catalog.js';
+import { parseTrustedProxies, resolveClientIp } from './lib/client-ip.js';
 import { lineTotals, isValidQty } from './public/lib/cart-math.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -197,23 +198,14 @@ function clearLoginFailures(ip) {
   loginAttempts.delete(ip);
 }
 
-// Trusted reverse proxies: when the direct peer matches one of these, X-Forwarded-For
-// is trusted; otherwise the peer socket is authoritative and any client-supplied header
-// is ignored (so rotating X-Forwarded-For cannot defeat rate limiting).
-const TRUSTED_PROXIES = new Set((process.env.TRUSTED_PROXIES || '').split(',').map((s) => s.trim()).filter(Boolean));
+// Trusted reverse proxies (exact IP or CIDR). X-Forwarded-For is trusted ONLY when the
+// direct peer matches one of these — never on NODE_ENV=production alone (an exposed app
+// would then trust attacker-supplied headers). Render operators must list Render's proxy
+// IPs here; see README §7.
+const TRUSTED_PROXIES = parseTrustedProxies(process.env.TRUSTED_PROXIES);
 
 function clientIp(req) {
-  const peer = req.socket.remoteAddress || 'unknown';
-  // Behind a trusted proxy only when the production flag is set (Render terminates TLS
-  // and sets XFF) or the direct peer is in the explicit TRUSTED_PROXIES allowlist.
-  const viaTrustedProxy = IS_PROD || TRUSTED_PROXIES.has(peer);
-  if (!viaTrustedProxy) return peer;
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd !== 'string' || !fwd.length) return peer;
-  const hops = fwd.split(',').map((s) => s.trim()).filter(Boolean);
-  // The trusted proxy appends the real client as the last hop; a client can only prepend
-  // their own (spoofed) hops on the left, so the rightmost value is the trustworthy one.
-  return hops[hops.length - 1] || peer;
+  return resolveClientIp(req.socket.remoteAddress, req.headers['x-forwarded-for'], TRUSTED_PROXIES);
 }
 
 /* ---------------- auth guard ---------------- */
