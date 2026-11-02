@@ -460,12 +460,14 @@ function openCart() {
   $('#cartDrawer').classList.add('is-open');
   $('#overlay').classList.add('is-open');
   $('#cartDrawer').setAttribute('aria-hidden', 'false');
+  $('#cartDrawer').removeAttribute('inert');
 }
 
 function closeCart() {
   $('#cartDrawer').classList.remove('is-open');
   $('#overlay').classList.remove('is-open');
   $('#cartDrawer').setAttribute('aria-hidden', 'true');
+  $('#cartDrawer').setAttribute('inert', '');
 }
 
 /* ---------------- checkout ---------------- */
