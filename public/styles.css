@@ -409,7 +409,9 @@ select.status-select { padding: 5px 8px; font-size: 12.5px; border-radius: 8px; 
 
 .ltr-input { direction: ltr; text-align: left; }
 
-/* ---------- 1.3 delivery slot picker ---------- */
+/* ---------- 1.3 delivery slot picker ----------
+   Every class is namespaced `slots-*`: the admin day board already owns
+   `.slot-chip`, and a shared name silently restyled it. */
 .slots-field { margin-block-end: 16px; }
 .slots-picker { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
 .slots-picker legend {
@@ -420,35 +422,35 @@ select.status-select { padding: 5px 8px; font-size: 12.5px; border-radius: 8px; 
 .slots-day-label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-block-end: 5px; }
 .slots-day-select { min-height: 44px; }
 .slots-windows { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 8px; }
-.slot-cell { position: relative; display: flex; min-inline-size: 0; }
-.slot-radio {
+.slots-cell { position: relative; display: flex; min-inline-size: 0; }
+.slots-radio {
   position: absolute; inline-size: 1px; block-size: 1px; opacity: 0;
   margin: 0; padding: 0; border: 0; pointer-events: none;
 }
-.slot-chip {
+.slots-chip {
   flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   min-block-size: 44px; min-inline-size: 44px; padding: 8px 10px;
   border: 1px solid var(--line-strong); border-radius: 12px; background: #fff;
   font-size: 13px; font-weight: 700; color: var(--ink); text-align: center; cursor: pointer;
   transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
-.slot-chip:hover { border-color: var(--accent); background: var(--cream-2); }
-.slot-chip .slot-time { font-variant-numeric: tabular-nums; }
-.slot-chip .slot-meta { font-size: 10.5px; font-weight: 600; color: #5f4a3b; }
-.slot-radio:checked + .slot-chip,
-.slot-chip.is-selected {
+.slots-chip:hover { border-color: var(--accent); background: var(--cream-2); }
+.slots-chip .slots-time { font-variant-numeric: tabular-nums; }
+.slots-chip .slots-meta { font-size: 10.5px; font-weight: 600; color: #5f4a3b; }
+.slots-radio:checked + .slots-chip,
+.slots-chip.is-selected {
   border-color: var(--accent-dark); background: rgba(196, 101, 63, .1);
   box-shadow: inset 0 0 0 1px var(--accent-dark);
 }
-.slot-radio:focus-visible + .slot-chip { outline: 3px solid var(--accent-dark); outline-offset: 2px; }
+.slots-radio:focus-visible + .slots-chip { outline: 3px solid var(--accent-dark); outline-offset: 2px; }
 /* Disabled stays readable: #4a382c on #efe6da is 8.9:1, meta #5f4a3b is 6.7:1. */
-.slot-chip.is-disabled,
-.slot-chip[aria-disabled="true"] {
+.slots-chip.is-disabled,
+.slots-chip[aria-disabled="true"] {
   background: #efe6da; border-color: var(--line-strong); border-style: dashed;
   color: #4a382c; cursor: not-allowed;
 }
-.slot-chip.is-disabled:hover { background: #efe6da; border-color: var(--line-strong); }
-.slot-chip.is-disabled .slot-meta { color: #5f4a3b; }
+.slots-chip.is-disabled:hover { background: #efe6da; border-color: var(--line-strong); }
+.slots-chip.is-disabled .slots-meta { color: #5f4a3b; }
 .slots-status { font-size: 12.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }
 .slots-status-selected:empty { display: none; }
 .slots-note { font-size: 12.5px; font-weight: 600; color: #8a3b31; margin: 0 0 8px; }

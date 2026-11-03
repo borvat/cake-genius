@@ -255,7 +255,7 @@ export function mountSlotsPicker(root, { days = [], lang = 'ar', value = null, o
   const dayFor = (date) => list.find((d) => d && d.date === date) || null;
 
   function syncChecked(windowId) {
-    for (const radio of grid.querySelectorAll('.slot-radio')) {
+    for (const radio of grid.querySelectorAll('.slots-radio')) {
       const on = radio.value === windowId && !radio.disabled;
       radio.checked = on;
       if (radio.nextElementSibling) radio.nextElementSibling.classList.toggle('is-selected', on);
@@ -302,10 +302,10 @@ export function mountSlotsPicker(root, { days = [], lang = 'ar', value = null, o
       if (!w || !w.id || !w.start) continue;
       const open = isWindowOpen(w);
       const id = `${name}-${w.id}`;
-      const cell = el('div', 'slot-cell');
+      const cell = el('div', 'slots-cell');
       const radio = document.createElement('input');
       radio.type = 'radio';
-      radio.className = 'slot-radio';
+      radio.className = 'slots-radio';
       radio.name = name;
       radio.id = id;
       radio.value = w.id;
@@ -314,7 +314,7 @@ export function mountSlotsPicker(root, { days = [], lang = 'ar', value = null, o
         radio.disabled = true;
         radio.setAttribute('aria-disabled', 'true');
       }
-      const chip = el('label', 'slot-chip');
+      const chip = el('label', 'slots-chip');
       chip.htmlFor = id;
       if (!open) {
         chip.classList.add('is-disabled');
@@ -322,13 +322,13 @@ export function mountSlotsPicker(root, { days = [], lang = 'ar', value = null, o
       }
       if (selectedWindow === w.id && open) chip.classList.add('is-selected');
       const timeText = localiseDigits(w.label || `${w.start} - ${w.end}`, L);
-      chip.append(el('span', 'slot-time', timeText));
+      chip.append(el('span', 'slots-time', timeText));
 
       const reason = !open ? (w.reason || (closedDay ? 'CLOSED' : 'FULL')) : null;
       let metaText = '';
       if (reason) metaText = labelForReason(reason, L);
       else if (Number.isFinite(w.remaining)) metaText = ui.remaining.replace('{n}', localiseDigits(w.remaining, L));
-      if (metaText) chip.append(el('span', 'slot-meta', metaText));
+      if (metaText) chip.append(el('span', 'slots-meta', metaText));
       radio.setAttribute('aria-label', [timeText, metaText].filter(Boolean).join(' — '));
 
       radio.addEventListener('change', () => {
