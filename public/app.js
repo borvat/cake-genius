@@ -1,5 +1,6 @@
 /* Cake Genius storefront (vanilla ES modules, no build step). */
 import { cartTotals as computeCartTotals, lineTotals, clampQty } from './lib/cart-math.js';
+import { mountSlotsPicker, pickDefaultWindow } from './slots-picker.js?v=1.3.0';
 
 const state = {
   lang: localStorage.getItem('cg_lang') || 'ar',
@@ -33,6 +34,8 @@ const I18N = {
     size: 'الحجم', flavor: 'النكهة', filling: 'الحشوة', design: 'التصميم', message: 'الرسالة على الكيك',
     messageHint: 'حتى 30 حرفاً مجاناً، وبعدها 12 ر.س لكل 20 حرفاً.', messagePlaceholder: 'مثال: كل عام وأنت بخير يا سارة',
     delivery: 'طريقة التسليم', deliveryAt: 'موعد التسليم', qty: 'الكمية', addToCartOk: 'أُضيفت إلى السلة',
+    slotsLoading: 'جارٍ تحميل المواعيد…', slotsError: 'تعذّر تحميل المواعيد المتاحة.',
+    slotsNone: 'لا توجد مواعيد تسليم متاحة حالياً.', slotsFallback: 'أدخل الموعد يدوياً وسنؤكده مع المخبز قبل التحضير.',
     cartEmpty: 'سلتك فارغة. اختر كيكة وابدأ التخصيص.', subtotal: 'قيمة الكيك', deliveryFee: 'التوصيل', rushFee: 'مستعجل',
     remove: 'إزالة', checkoutTitle: 'إتمام الطلب', customerName: 'الاسم', customerPhone: 'رقم الجوال', customerEmail: 'البريد (اختياري)',
     notes: 'ملاحظات للمخبز (اختياري)', payNote: 'دفع تجريبي — لن يتم تحصيل أي مبلغ. لا تُدخل بيانات بطاقة حقيقية.',
@@ -65,6 +68,8 @@ const I18N = {
     size: 'Size', flavor: 'Flavour', filling: 'Filling', design: 'Design', message: 'Message on the cake',
     messageHint: 'Free up to 30 characters, then 12 SAR for each 20 characters.', messagePlaceholder: 'e.g. Happy birthday Sara',
     delivery: 'Fulfilment', deliveryAt: 'Delivery time', qty: 'Quantity', addToCartOk: 'Added to cart',
+    slotsLoading: 'Loading available times…', slotsError: 'Could not load the available times.',
+    slotsNone: 'No delivery slots are available right now.', slotsFallback: 'Enter a time manually and we will confirm it with the bakery before baking.',
     cartEmpty: 'Your cart is empty. Pick a cake and start customising.', subtotal: 'Cakes', deliveryFee: 'Delivery', rushFee: 'Rush',
     remove: 'Remove', checkoutTitle: 'Checkout', customerName: 'Name', customerPhone: 'Mobile number', customerEmail: 'Email (optional)',
     notes: 'Notes for the bakery (optional)', payNote: 'Demo payment — no money is collected. Never enter real card data.',
@@ -257,18 +262,10 @@ function renderCustomFields() {
   });
   box.append(msgField);
 
-  const dateField = document.createElement('div');
-  dateField.className = 'field';
-  dateField.innerHTML = `
-    <label for="dateInput">${escapeHtml(t('deliveryAt'))}</label>
-    <input id="dateInput" type="datetime-local" value="${escapeHtml(c.config.deliveryAt || isoLocalPlus(2))}" min="${isoLocalPlus(0).slice(0, 16)}" />`;
-  dateField.querySelector('#dateInput').value = (c.config.deliveryAt || isoLocalPlus(2)).slice(0, 16);
-  dateField.querySelector('#dateInput').addEventListener('change', (e) => {
-    c.config.deliveryAt = e.target.value;
-    refreshQuote();
-  });
-  box.append(dateField);
-  if (!c.config.deliveryAt) c.config.deliveryAt = isoLocalPlus(2);
+  const slotField = document.createElement('div');
+  slotField.className = 'field slots-field';
+  box.append(slotField);
+  mountDeliveryField(slotField);
 
   const qtyField = document.createElement('div');
   qtyField.className = 'field';
@@ -296,6 +293,74 @@ function renderCustomFields() {
     btn.addEventListener('click', () => applyQty(clampQty(c.qty) + Number(btn.dataset.step), true));
   });
   box.append(qtyField);
+}
+
+/* ---------------- delivery slots ---------------- */
+
+const SLOT_QUERY = '/api/slots?days=21';
+let slotsPromise = null;
+let slotMountSeq = 0;
+
+/** One request per session: the promise is shared, never polled. */
+function fetchSlots() {
+  if (!slotsPromise) {
+    slotsPromise = api(SLOT_QUERY).catch((err) => { slotsPromise = null; throw err; });
+  }
+  return slotsPromise;
+}
+
+/** ISO instant -> value for a datetime-local input (browser local time). */
+function localInputValue(iso) {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Last-resort free datetime field: the customer is never blocked on /api/slots. */
+function renderDateFallback(container, c, message) {
+  container.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'slots-fallback';
+  wrap.innerHTML = `
+    <p class="slots-note" role="status">${escapeHtml(message)}</p>
+    <label for="dateInput">${escapeHtml(t('deliveryAt'))}</label>
+    <input id="dateInput" type="datetime-local" value="${escapeHtml(localInputValue(c.config.deliveryAt) || isoLocalPlus(2))}" min="${escapeHtml(isoLocalPlus(0).slice(0, 16))}" />
+    <p class="hint">${escapeHtml(t('slotsFallback'))}</p>`;
+  container.append(wrap);
+  const input = wrap.querySelector('#dateInput');
+  input.addEventListener('change', () => {
+    const picked = new Date(input.value);
+    if (!Number.isFinite(picked.getTime())) { c.config.deliveryAt = ''; return; }
+    c.config.deliveryAt = picked.toISOString();
+    refreshQuote();
+  });
+}
+
+async function mountDeliveryField(container) {
+  const c = state.custom;
+  if (!c) return;
+  const seq = ++slotMountSeq;
+  container.innerHTML = `<p class="slots-status" role="status"><span class="spinner dark"></span> ${escapeHtml(t('slotsLoading'))}</p>`;
+  let data = null;
+  try { data = await fetchSlots(); } catch { data = null; }
+  if (seq !== slotMountSeq || state.custom !== c) return;
+  const days = data && Array.isArray(data.days) ? data.days : [];
+  const def = days.length ? pickDefaultWindow(days, (data && data.nextAvailable) || null) : null;
+  if (!def) {
+    renderDateFallback(container, c, data ? t('slotsNone') : t('slotsError'));
+    return;
+  }
+  container.innerHTML = '';
+  mountSlotsPicker(container, {
+    days,
+    lang: state.lang,
+    value: c.config.deliveryAt || null,
+    onChange: ({ iso }) => {
+      c.config.deliveryAt = iso;
+      refreshQuote();
+    },
+  });
 }
 
 async function refreshQuote() {
