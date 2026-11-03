@@ -548,7 +548,19 @@ async function handleApi(req, res, url) {
     if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
       return send(res, 400, { error: 'BAD_DATE', message: 'from must be YYYY-MM-DD' });
     }
-    return send(res, 200, { days: await listAvailability({ days, startDate }) });
+    const availability = await listAvailability({ days, startDate });
+    // The earliest window a customer can still book, in display order, so the
+    // picker can jump straight to it instead of re-deriving it from the days.
+    let nextAvailable = null;
+    for (const day of availability) {
+      const open = (day.windows || []).find((w) => w.disabled === false);
+      if (!open) continue;
+      nextAvailable = {
+        date: day.date, windowId: open.id, start: open.start, label: open.label, remaining: open.remaining,
+      };
+      break;
+    }
+    return send(res, 200, { days: availability, nextAvailable });
   }
 
   if (p === '/api/products' && method === 'GET') {
