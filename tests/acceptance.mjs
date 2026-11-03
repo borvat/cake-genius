@@ -81,6 +81,8 @@ async function main() {
   const farDate = new Date(Date.now() + 5 * 864e5);
   farDate.setHours(12, 0, 0, 0);
   const far = farDate.toISOString();
+  // One order per day keeps each inside a 6-per-window / 12-per-day budget.
+  const dayAt = (n) => new Date(farDate.getTime() + n * 864e5).toISOString();
   const q5 = await req('/api/quote', { method: 'POST', expect: 200, body: { productId: 'p-choco', config: { deliveryAt: far } } });
   check('no rush fee for a 5-day lead time', q5.data.quote.rushRequired === false && q5.data.quote.rushFee === 0);
 
@@ -155,7 +157,7 @@ async function main() {
     const qPhone = '05' + String(Date.now()).slice(-6) + String(q);
     const r = await req('/api/orders', {
       method: 'POST', expect: 201,
-      body: { customer: { name: `كمية ${q}`, phone: qPhone }, items: [{ productId: 'p-lotus', config: lotusCfg, quantity: q }] },
+      body: { customer: { name: `كمية ${q}`, phone: qPhone }, items: [{ productId: 'p-lotus', config: lotusCfg, quantity: q }], deliveryAt: dayAt(q) },
     });
     const o = r.data.order;
     check(`qty ${q}: order total = unit*qty + delivery (${unit * q} + ${lineDelivery} = ${unit * q + lineDelivery})`,
@@ -176,7 +178,7 @@ async function main() {
     body: {
       customer: { name: 'عميل تلاعب', phone: '05' + String(Date.now()).slice(-8) },
       items: [{ productId: 'p-lotus', config: lotusCfg, quantity: 2, unitPrice: 1, lineTotal: 2, total: 2, price: 1 }],
-      total: 2, subtotal: 2,
+      total: 2, subtotal: 2, deliveryAt: dayAt(4),
     },
   });
   check('client-sent unitPrice/lineTotal/total are ignored (server recomputes 312x2+25)',
@@ -199,6 +201,7 @@ async function main() {
         { productId: 'p-lotus', config: lotusCfg, quantity: 2 },
         { productId: 'p-mini', config: { size: 's6', flavor: 'vanilla', filling: 'cream', design: 'classic', deliveryMethod: 'pickup' }, quantity: 1 },
       ],
+      deliveryAt: dayAt(5),
     },
   });
   check('mixed cart sums both lines and charges delivery per line',

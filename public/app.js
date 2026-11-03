@@ -207,9 +207,16 @@ function defaultConfig() {
   return { size: 's8', flavor: 'vanilla', filling: 'cream', design: 'classic', message: '', deliveryMethod: 'pickup', deliveryAt: '' };
 }
 
+/**
+ * Local datetime-local value N days out, at the shop's first staffed window.
+ * 14:00 was wrong: it is the exclusive end of window 1, so windowForTime()
+ * returns null and the server refuses it with SLOT_CLOSED (QA-1.3-01).
+ */
 function isoLocalPlus(days) {
   const d = new Date(Date.now() + days * 864e5);
-  d.setHours(14, 0, 0, 0);
+  const first = state.config?.capacity?.windows?.[0]?.start || '12:00';
+  const [h, m] = String(first).split(':').map(Number);
+  d.setHours(Number.isFinite(h) ? h : 12, Number.isFinite(m) ? m : 0, 0, 0);
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
