@@ -712,7 +712,7 @@ async function handleApi(req, res, url) {
       });
       return send(res, 201, { order });
     } catch (err) {
-      if (err.code === 'DAY_FULL' || err.code === 'SLOT_FULL') {
+      if (err.code === 'DAY_FULL' || err.code === 'SLOT_FULL' || err.code === 'SLOT_CLOSED') {
         return send(res, 409, { error: err.code, message: err.message });
       }
       if (err.status === 400) {

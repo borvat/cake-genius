@@ -76,7 +76,11 @@ async function main() {
   check('rush (<24h) adds exactly 25% of cake subtotal',
     q4.data.quote.rushRequired === true && q4.data.quote.rushFee === Math.round(baseCake * 0.25));
 
-  const far = new Date(Date.now() + 5 * 864e5).toISOString();
+  // Five days out, but at 12:00 Riyadh so it falls inside the staffed window:
+  // since 1.3 a delivery time outside every window is refused (SLOT_CLOSED).
+  const farDate = new Date(Date.now() + 5 * 864e5);
+  farDate.setHours(12, 0, 0, 0);
+  const far = farDate.toISOString();
   const q5 = await req('/api/quote', { method: 'POST', expect: 200, body: { productId: 'p-choco', config: { deliveryAt: far } } });
   check('no rush fee for a 5-day lead time', q5.data.quote.rushRequired === false && q5.data.quote.rushFee === 0);
 

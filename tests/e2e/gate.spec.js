@@ -305,15 +305,12 @@ test('1.3: pick a delivery window, order, and operate it from the admin dashboar
 });
 
 /**
- * Known defect, documented in docs/QA-1.3.md (QA-1.3-01). Kept as a fixme so the
- * gate keeps measuring the shipped path while the repro survives in the spec:
- * with /api/slots down, the fallback field shows a prefilled delivery time but
- * never writes it to config, so a paid delivery order is stored with
- * deliveryAt=null and never appears on any admin day board. Remove `.fixme`
- * once the field commits its value (or the server refuses a delivery order
- * without one).
+ * QA-1.3-01 regression: with /api/slots down the fallback field shows a
+ * prefilled delivery time and must store exactly that instant. It was a fixme
+ * while the defect was open; the field now commits its value and the server
+ * refuses a delivery order without one, so the test runs for real.
  */
-test.fixme('1.3 [QA-1.3-01]: a delivery order placed while /api/slots is down keeps the time it shows', async ({ page }) => {
+test('1.3 [QA-1.3-01]: a delivery order placed while /api/slots is down keeps the time it shows', async ({ page }) => {
   await page.route('**/api/slots*', (route) => route.abort('failed'));
   await page.goto('/');
   await page.waitForSelector('#productGrid button[data-id]', { timeout: 15_000 });

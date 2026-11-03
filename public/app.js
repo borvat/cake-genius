@@ -329,10 +329,17 @@ function renderDateFallback(container, c, message) {
     <p class="hint">${escapeHtml(t('slotsFallback'))}</p>`;
   container.append(wrap);
   const input = wrap.querySelector('#dateInput');
-  input.addEventListener('change', () => {
+  const commit = () => {
     const picked = new Date(input.value);
     if (!Number.isFinite(picked.getTime())) { c.config.deliveryAt = ''; return; }
     c.config.deliveryAt = picked.toISOString();
+  };
+  // Commit what the field already shows: a visible date the customer never
+  // touched must still be the date that gets stored (QA-1.3-01).
+  commit();
+  refreshQuote();
+  input.addEventListener('change', () => {
+    commit();
     refreshQuote();
   });
 }

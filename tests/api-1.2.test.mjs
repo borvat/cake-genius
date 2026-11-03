@@ -157,6 +157,20 @@ try {
   check('the preview links to a manual wa.me send', String(prev.data.links.customer).startsWith('https://wa.me/'));
   check('the preview body carries the order code', prev.data.messages.customer.body.includes(o1.data.order.code));
 
+  /* 1.3: a time outside every staffed window is refused, never booked blind */
+  const outside = await req(PORT, '/api/orders', {
+    method: 'POST',
+    body: { customer: { name: 'عميل خارج الفترة', phone: '0555111777' }, items: [line(1)], deliveryAt: `${date}T11:30:00.000Z` },
+  });
+  check('14:30 Riyadh (between windows) is refused with 409 SLOT_CLOSED',
+    outside.status === 409 && outside.data.error === 'SLOT_CLOSED', `${outside.status} ${JSON.stringify(outside.data)}`);
+  const late = await req(PORT, '/api/orders', {
+    method: 'POST',
+    body: { customer: { name: 'عميل متأخر', phone: '0555111778' }, items: [line(1)], deliveryAt: `${date}T20:00:00.000Z` },
+  });
+  check('23:00 Riyadh (after the last window) is refused with 409 SLOT_CLOSED',
+    late.status === 409 && late.data.error === 'SLOT_CLOSED', `${late.status} ${JSON.stringify(late.data)}`);
+
   /* the refused request must not create a negative-capacity row */
   const slotsAfter = await req(PORT, `/api/slots?days=3&from=${date}`);
   const slotDay = slotsAfter.data.days[0];
