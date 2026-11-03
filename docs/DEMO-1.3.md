@@ -8,7 +8,7 @@
 
 | الطبقة | التغيير |
 | --- | --- |
-| عقد `/api/slots` | كل فترة تحمل `reason` و`disabled`، والجذر يحمل `leadHours` و`nextAvailable` |
+| عقد `/api/slots` | كل فترة تحمل `reason` و`disabled`، و`leadHours` رقمي في الجذر أو في كل يوم، والجذر يحمل `nextAvailable` |
 | `nextAvailable` | `{date, windowId, start, label, remaining}` أو `null` عندما لا توجد فترة قابلة للحجز |
 | الواجهة | استخراج منطق منتقي الفترات إلى `public/slots-picker.js` مع اختبار مستقل |
 | الاختبارات | `tests/availability.test.mjs` و`tests/slots-picker.test.mjs` |
@@ -56,7 +56,7 @@ FAIL  slots contract: root exposes nextAvailable -> nextAvailable key missing
 هذه الحزمة تخص DevOps فقط، وتغييرات الخادم والواجهة في 1.3 لم تُدمج بعد. لذلك يمرّ الفحص على سلوك 1.2 في 12 تحققاً، ويفشل في أربعة حقول جديدة كما هو متوقع:
 
 - `slots contract: every window carries a reason` → `missing reason on: w1, w2`
-- `slots contract: root exposes numeric leadHours` → `leadHours=undefined`
+- `slots contract: exposes numeric leadHours (root or every day)` → `root=undefined, days with leadHours=0/14`
 - `slots contract: root exposes nextAvailable` → `nextAvailable key missing`
 - `slots: nextAvailable is null or a bookable window` → `nextAvailable key missing`
 
@@ -66,4 +66,4 @@ FAIL  slots contract: root exposes nextAvailable -> nextAvailable key missing
 
 **لم يُنشر شيء.** النشر يحتاج موافقة المالك الصريحة، ولم تُنشأ أي خدمة Render أو قاعدة بيانات أو نطاق، ولم تُعدَّل `render.yaml` ولا متغيرات بيئة الإنتاج. بوابة 1.3 محددة بـ `deployment: "none"` و`ci: false` و`github: null` و`live: null`، فلا مرحلة نشر ولا دفع ولا فتح مورد سحابي.
 
-بوابة 1.3: `vlab gate --config gate.config.cake-genius-1.3.json` — فحص صياغة لـ `server.js` و`public/slots-picker.js` و`scripts/demo-check.mjs`، ثم اختبارات 1.2 السبعة مع `availability` و`slots-picker`، ثم مصفوفة الأمان كما هي في 1.2 (جلسة المشرف وخمسة مسارات إدارية تتوقع 401).
+بوابة 1.3: `vlab gate --config gate.config.cake-genius-1.3.json`. آخر تشغيل على مرشّح مُجمَّع من الفروع الثلاثة: المراحل 1 و2 و3.1 و3.2 و4 و7.1 **PASS**، والمرحلة 3 (E2E) **FAIL — no tests found** لغياب مواصفة 1.3 التي يملكها QA، فالحكم **BLOCKED**؛ التقرير `verification-lab/out/gate-cake-genius-1.3-candidate-2026-11-03T02-03-39-112Z.json`. وعلى مسار الدمج الحالي تفشل المرحلتان 1 و2 لأن فروع 1.3 لم تُدمج بعد (`gate-cake-genius-1.3-studio-2026-11-03T02-04-43-737Z.json`).

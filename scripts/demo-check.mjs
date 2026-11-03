@@ -270,7 +270,15 @@ async function main() {
       reasonShape ? `disabled windows without reason: ${disabledWithoutReason.map((w) => w.id).slice(0, 3).join(', ')}` : `missing reason on: ${windows.filter((w) => !Object.hasOwn(w, 'reason')).slice(0, 2).map((w) => w.id).join(', ')}`,
     );
 
-    check('slots contract: root exposes numeric leadHours', typeof slots.data?.leadHours === 'number', `leadHours=${JSON.stringify(slots.data?.leadHours)}`);
+    // 1.3 may expose leadHours at the payload root or echo it per day; the
+    // contract only requires it to be present and numeric, so accept either.
+    const rootLead = typeof slots.data?.leadHours === 'number';
+    const dayLead = days.filter((d) => typeof d.leadHours === 'number').length;
+    check(
+      'slots contract: exposes numeric leadHours (root or every day)',
+      rootLead || (days.length > 0 && dayLead === days.length),
+      rootLead ? `root leadHours=${slots.data.leadHours}` : `root=${JSON.stringify(slots.data?.leadHours)}, days with leadHours=${dayLead}/${days.length}`,
+    );
 
     const next = inspectNextAvailable(slots.data || {}, days);
     check('slots contract: root exposes nextAvailable', next.present, next.detail || 'nextAvailable key missing');
